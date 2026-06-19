@@ -1,12 +1,10 @@
 # claude-statusline
 
-A two-line custom status line for [Claude Code](https://code.claude.com) that surfaces
-context-window and rate-limit usage at a glance, with per-cell green→red gradient bars.
+Never get blindsided by a rate limit again. This drop-in status line keeps your
+context-window, 5-hour, and weekly usage — and how close each is to its cap — visible at
+the bottom of every [Claude Code](https://code.claude.com) prompt.
 
-```
-60k/200k    30% | 5hr 18:20   45% | Week Jun 22 20%
-▘▘▘▘▘▘▘▘▘▘▘▘▘▘▘ | ▘▘▘▘▘▘▘▘▘▘▘▘▘▘▘ | ▘▘▘▘▘▘▘▘▘▘▘▘▘▘▘
-```
+![claude-statusline showing token, 5-hour, and weekly usage with green→red gradient bars](ss.png)
 
 - **Line 1** — three sections separated by ` | `:
   - `used/total` tokens + context-window `%`
