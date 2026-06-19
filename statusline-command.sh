@@ -84,7 +84,9 @@ BRIGHT="${ESC}[22m"   # normal intensity — makes the % stand out against the d
 REDIM="${ESC}[2m"     # back to faint
 MID="${ESC}[22m${ESC}[38;2;200;200;200m"   # medium: brighter than dim, dimmer than %
 MIDOFF="${ESC}[39m${REDIM}"                 # restore default color + faint
-MODELC="${ESC}[38;2;185;185;185m"           # model name (line 2) — soft gray
+MC_NAME="${ESC}[38;2;190;105;77m"   # model family — Claude orange, a little dim
+MC_VER="${ESC}[38;2;205;205;205m"   # version — dimmed white
+MC_CTX="${ESC}[38;2;135;135;135m"   # (context) — dimmed gray
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -101,6 +103,14 @@ fmtctx() {
 # Left-align text to exactly N columns (pad with spaces, or clip if too long)
 fit() {
     if [ "${#1}" -gt "$2" ]; then printf '%.*s' "$2" "$1"; else printf '%-*s' "$2" "$1"; fi
+}
+# Color a model string "Name Ver (Ctx)": orange family, dim-white version, dim-gray context.
+style_model() {
+    mt="$1"; ctxp=""; rest="$mt"
+    case "$mt" in *\ \(*\)) ctxp=" ${mt##* }"; rest="${mt% *}" ;; esac
+    nm="${rest%% *}"; vr=""
+    case "$rest" in *" "*) vr=" ${rest#* }" ;; esac
+    printf '%s%s%s%s%s%s%s' "$MC_NAME" "$nm" "$MC_VER" "$vr" "$MC_CTX" "$ctxp" "$RST"
 }
 
 # Render a BARW-cell bar; each cell owns a green(0%)->red(100%) gradient color.
@@ -148,7 +158,15 @@ wk_d="";  [ -n "$wk_reset" ] && wk_d=" $(date -r "$wk_reset" +"$DATEFMT" 2>/dev/
 [ -n "$wk_pct" ] && wk_r=$(printf "%.0f" "$wk_pct")
 if [ "$ctx_size" -gt 0 ]; then tok_used=$(fmtk "$total"); tok_tot=$(fmtk "$ctx_size"); fi
 model_text="$model_name"
-[ -n "$model_name" ] && [ "$ctx_size" -gt 0 ] && model_text="$model_name ($(fmtctx "$ctx_size"))"
+if [ -n "$model_name" ]; then
+    # Names may already carry a context label, e.g. "Opus 4.8 (1M context)";
+    # tidy that to "(1M)". Only append a derived size if there's no parenthetical.
+    model_text=$(printf '%s' "$model_name" | sed 's/ context//g')
+    case "$model_text" in
+        *\(*\)*) : ;;
+        *) [ "$ctx_size" -gt 0 ] && model_text="$model_text ($(fmtctx "$ctx_size"))" ;;
+    esac
+fi
 
 # Build line 1 (text) and line 2 (bars / model name), one section at a time.
 L1=""; L2=""; idx=0
@@ -158,9 +176,17 @@ for s in $avail; do
     last=0; [ "$idx" -eq "$keep" ] && last=1
 
     if [ "$s" = "model" ]; then
-        # Label on line 1, model name on line 2 (no % / no bar).
-        if [ "$last" -eq 1 ]; then s1="Model"; s2="$model_text"; else s1=$(fit "Model" "$BARW"); s2=$(fit "$model_text" "$BARW"); fi
-        seg="$s1"; barseg="${MODELC}${s2}${RST}"
+        # Label on line 1; colored model name on line 2 (no % / no bar).
+        if [ "$last" -eq 1 ]; then
+            seg="Model"; barseg=$(style_model "$model_text")
+        else
+            seg=$(fit "Model" "$BARW")
+            if [ "${#model_text}" -ge "$BARW" ]; then
+                barseg="${MC_NAME}$(printf '%.*s' "$BARW" "$model_text")${RST}"
+            else
+                barseg="$(style_model "$model_text")$(printf '%*s' "$(( BARW - ${#model_text} ))" '')"
+            fi
+        fi
     else
         case "$s" in
             tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
