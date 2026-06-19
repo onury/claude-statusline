@@ -11,3 +11,6 @@
 *~
 *.tmp
 Thumbs.db
+
+# Local GIF-recording helpers (the rendered demo.gif is committed, the tooling isn't)
+/demo/

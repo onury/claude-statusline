@@ -1,10 +1,15 @@
 # claude-statusline
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-4EAA25?logo=gnubash&logoColor=white)
+![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![Claude Code](https://img.shields.io/badge/Claude%20Code-statusline-D97757)
+
 Never get blindsided by a rate limit again. This drop-in status line keeps your
 context-window, 5-hour, and weekly usage — and how close each is to its cap — visible at
 the bottom of every [Claude Code](https://code.claude.com) prompt.
 
-![claude-statusline showing token, 5-hour, and weekly usage with green→red gradient bars](ss.png)
+![claude-statusline: animated token, 5-hour and weekly bars filling green→red, with the model section](demo.gif)
 
 - **Line 1** — three sections separated by ` | `:
   - `used/total` tokens + context-window `%`
@@ -28,11 +33,14 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
 
 ## Install
 
-1. Copy the script into your Claude Code config dir:
+1. Download the script into your Claude Code config dir:
 
    ```sh
-   cp statusline-command.sh ~/.claude/statusline-command.sh
+   curl -fsSL https://raw.githubusercontent.com/onury/claude-statusline/main/statusline-command.sh \
+     -o ~/.claude/statusline-command.sh
    ```
+
+   <sub>Or, from a clone of this repo: `cp statusline-command.sh ~/.claude/statusline-command.sh`</sub>
 
 2. Point `~/.claude/settings.json` at it:
 
