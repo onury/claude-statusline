@@ -1,21 +1,23 @@
 #!/bin/sh
 # Claude Code status line  —  v1.0.0
 # https://github.com/onury/claude-statusline
-#   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset
-#   Line 2:        per-cell green->red progress bar under each segment
+#   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
+#   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
 #
 # Options (pass in settings.json, e.g.
-#   "command": "sh ~/.claude/statusline-command.sh --width 20 --sections tokens,week"):
-#   --width N        cells per bar / width of each line-1 field   (default 15)
-#   --glyph CHAR     single-column bar cell character             (default ▘)
-#   --sections LIST  comma list / order: tokens,5hr,week          (default tokens,5hr,week)
-#   --time FMT       strftime for the 5hr reset clock             (default %H:%M)
-#   --date FMT       strftime for the weekly reset date           (default %b %d)
-#   --fill F         brightness 0..1 of filled cells              (default 0.80)
-#   --track F        brightness 0..1 of the unfilled track        (default 0.22)
+#   "command": "sh ~/.claude/statusline-command.sh --width 20 --model true"):
+#   --width N           cells per bar / width of each line-1 field   (default 15)
+#   --glyph CHAR        single-column bar cell character             (default ▘)
+#   --sections LIST     comma list / order: tokens,5hr,week,model    (default tokens,5hr,week)
+#   --time FMT          strftime for the 5hr reset clock             (default %H:%M)
+#   --date FMT          strftime for the weekly reset date           (default %b %d)
+#   --fill F            brightness 0..1 of filled cells              (default 0.80)
+#   --track F           brightness 0..1 of the unfilled track        (default 0.22)
+#   --model true|false  append a Model section (name on line 2)      (default false)
+#   --responsive true|false  drop sections from the right to fit $COLUMNS (default true)
 # Pipe alignment is preserved for any settings: every non-last field is rendered to
-# exactly --width columns (overlong reset text is clipped); only the last field may
-# overflow, which never shifts a pipe.
+# exactly --width columns (overlong text is clipped); only the last field may overflow,
+# which never shifts a pipe.
 
 # ---- defaults ----
 WIDTH=15
@@ -25,23 +27,31 @@ TIMEFMT="%H:%M"
 DATEFMT="%b %d"
 FILL="0.80"
 TRACK="0.22"
+MODEL="false"
+RESPONSIVE="true"
 
 # ---- args ----
 while [ $# -gt 0 ]; do
     case "$1" in
-        --width)    WIDTH="$2";    shift 2 ;;
-        --glyph)    GLYPH="$2";    shift 2 ;;
-        --sections) SECTIONS="$2"; shift 2 ;;
-        --time)     TIMEFMT="$2";  shift 2 ;;
-        --date)     DATEFMT="$2";  shift 2 ;;
-        --fill)     FILL="$2";     shift 2 ;;
-        --track)    TRACK="$2";    shift 2 ;;
-        *)          shift ;;       # ignore unknown
+        --width)      WIDTH="$2";      shift 2 ;;
+        --glyph)      GLYPH="$2";      shift 2 ;;
+        --sections)   SECTIONS="$2";   shift 2 ;;
+        --time)       TIMEFMT="$2";    shift 2 ;;
+        --date)       DATEFMT="$2";    shift 2 ;;
+        --fill)       FILL="$2";       shift 2 ;;
+        --track)      TRACK="$2";      shift 2 ;;
+        --model)      MODEL="$2";      shift 2 ;;
+        --responsive) RESPONSIVE="$2"; shift 2 ;;
+        *)            shift ;;         # ignore unknown
     esac
 done
 case "$WIDTH" in *[!0-9]*|"") WIDTH=15 ;; esac   # guard: positive integer
 [ "$WIDTH" -lt 1 ] && WIDTH=1
 BARW="$WIDTH"
+# --model true appends the model section (if not already requested).
+if [ "$MODEL" = "true" ]; then
+    case ",$SECTIONS," in *,model,*) ;; *) SECTIONS="$SECTIONS,model" ;; esac
+fi
 
 input=$(cat)
 ESC=$(printf '\033')
@@ -64,6 +74,9 @@ fh_reset=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.resets_at // emp
 wk_pct=$(printf '%s' "$input"   | jq -r '.rate_limits.seven_day.used_percentage // empty')
 wk_reset=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
+# ---- model ----
+model_name=$(printf '%s' "$input" | jq -r '.model.display_name // empty')
+
 DIM="${ESC}[2m"
 RST="${ESC}[0m"
 SEP="${DIM} | ${RST}"
@@ -71,15 +84,23 @@ BRIGHT="${ESC}[22m"   # normal intensity — makes the % stand out against the d
 REDIM="${ESC}[2m"     # back to faint
 MID="${ESC}[22m${ESC}[38;2;200;200;200m"   # medium: brighter than dim, dimmer than %
 MIDOFF="${ESC}[39m${REDIM}"                 # restore default color + faint
+MODELC="${ESC}[38;2;185;185;185m"           # model name (line 2) — soft gray
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
     n=$1
-    if [ "$n" -ge 1000 ]; then
-        echo "$(( (n + 500) / 1000 ))k"
-    else
-        echo "$n"
-    fi
+    if [ "$n" -ge 1000 ]; then echo "$(( (n + 500) / 1000 ))k"; else echo "$n"; fi
+}
+# Abbreviate a context-window size to a 1M / 200K style label
+fmtctx() {
+    n=$1
+    if   [ "$n" -ge 1000000 ]; then echo "$(( n / 1000000 ))M"
+    elif [ "$n" -ge 1000 ];    then echo "$(( n / 1000 ))K"
+    else echo "$n"; fi
+}
+# Left-align text to exactly N columns (pad with spaces, or clip if too long)
+fit() {
+    if [ "${#1}" -gt "$2" ]; then printf '%.*s' "$2" "$1"; else printf '%-*s' "$2" "$1"; fi
 }
 
 # Render a BARW-cell bar; each cell owns a green(0%)->red(100%) gradient color.
@@ -106,45 +127,62 @@ for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
         tokens) [ "$ctx_size" -gt 0 ] && avail="$avail tokens" ;;
         5hr)    [ -n "$fh_pct" ]      && avail="$avail 5hr" ;;
         week)   [ -n "$wk_pct" ]      && avail="$avail week" ;;
+        model)  [ -n "$model_name" ]  && avail="$avail model" ;;
     esac
 done
 set -- $avail
-count=$#
+keep=$#
 
-# Precompute per-section reset strings.
+# Responsive: drop sections from the right until the line fits $COLUMNS.
+case "$COLUMNS" in *[!0-9]*|"") cols=0 ;; *) cols="$COLUMNS" ;; esac
+if [ "$RESPONSIVE" = "true" ] && [ "$cols" -gt 0 ]; then
+    while [ "$keep" -gt 1 ] && [ $(( keep * BARW + 3 * (keep - 1) )) -gt "$cols" ]; do
+        keep=$(( keep - 1 ))
+    done
+fi
+
+# Precompute per-section content.
 fh_t=""; [ -n "$fh_reset" ] && fh_t=" $(date -r "$fh_reset" +"$TIMEFMT" 2>/dev/null)"
 wk_d="";  [ -n "$wk_reset" ] && wk_d=" $(date -r "$wk_reset" +"$DATEFMT" 2>/dev/null)"
 [ -n "$fh_pct" ] && fh_r=$(printf "%.0f" "$fh_pct")
 [ -n "$wk_pct" ] && wk_r=$(printf "%.0f" "$wk_pct")
 if [ "$ctx_size" -gt 0 ]; then tok_used=$(fmtk "$total"); tok_tot=$(fmtk "$ctx_size"); fi
+model_text="$model_name"
+[ -n "$model_name" ] && [ "$ctx_size" -gt 0 ] && model_text="$model_name ($(fmtctx "$ctx_size"))"
 
-# Build line 1 (text) and line 2 (bars), one section at a time.
+# Build line 1 (text) and line 2 (bars / model name), one section at a time.
 L1=""; L2=""; idx=0
 for s in $avail; do
     idx=$((idx + 1))
-    case "$s" in
-        tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
-        5hr)    lp="5hr${fh_t}";  ls="$lp"; pct="${fh_r}%"; bp="$fh_r" ;;
-        week)   lp="Week${wk_d}";  ls="$lp"; pct="${wk_r}%"; bp="$wk_r" ;;
-    esac
+    [ "$idx" -gt "$keep" ] && break
+    last=0; [ "$idx" -eq "$keep" ] && last=1
 
-    pad=$(( BARW - ${#lp} - ${#pct} ))
-    if [ "$idx" -eq "$count" ]; then
-        # Last field: may overflow (no pipe follows), just keep a 1-space gap.
-        [ "$pad" -lt 1 ] && pad=1
-    elif [ "$pad" -lt 1 ]; then
-        # Non-last: clip left text so the field stays exactly BARW -> pipes stay aligned.
-        keep=$(( BARW - ${#pct} - 1 )); [ "$keep" -lt 0 ] && keep=0
-        lp=$(printf '%.*s' "$keep" "$lp"); ls="$lp"
-        pad=1
+    if [ "$s" = "model" ]; then
+        # Label on line 1, model name on line 2 (no % / no bar).
+        if [ "$last" -eq 1 ]; then s1="Model"; s2="$model_text"; else s1=$(fit "Model" "$BARW"); s2=$(fit "$model_text" "$BARW"); fi
+        seg="$s1"; barseg="${MODELC}${s2}${RST}"
+    else
+        case "$s" in
+            tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
+            5hr)    lp="5hr${fh_t}";  ls="$lp"; pct="${fh_r}%"; bp="$fh_r" ;;
+            week)   lp="Week${wk_d}";  ls="$lp"; pct="${wk_r}%"; bp="$wk_r" ;;
+        esac
+        pad=$(( BARW - ${#lp} - ${#pct} ))
+        if [ "$last" -eq 1 ]; then
+            [ "$pad" -lt 1 ] && pad=1
+        elif [ "$pad" -lt 1 ]; then
+            clip=$(( BARW - ${#pct} - 1 )); [ "$clip" -lt 0 ] && clip=0
+            lp=$(printf '%.*s' "$clip" "$lp"); ls="$lp"; pad=1
+        fi
+        spaces=$(printf "%*s" "$pad" "")
+        seg="${ls}${spaces}${BRIGHT}${pct}${REDIM}"
+        barseg="$(bar "$bp")"
     fi
-    spaces=$(printf "%*s" "$pad" "")
-    seg="${ls}${spaces}${BRIGHT}${pct}${REDIM}"
 
     if [ -z "$L1" ]; then
-        L1="$seg"; L2="$(bar "$bp")"
+        L1="$seg"; L2="$barseg"
     else
-        L1="$L1 | $seg"; L2="$L2${SEP}$(bar "$bp")"
+        L1="$L1 | $seg"; L2="$L2${SEP}${barseg}"
     fi
 done
 
