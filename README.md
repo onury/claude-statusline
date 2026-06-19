@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-4EAA25?logo=gnubash&logoColor=white)
-![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
-![Claude Code](https://img.shields.io/badge/Claude%20Code-statusline-D97757)
+![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-730A8B)
+![Claude Code](https://img.shields.io/badge/Claude%20Code-statusline-E5750B)
 
 Never get blindsided by a rate limit again. This drop-in status line keeps your
 context-window, 5-hour, and weekly usage — and how close each is to its cap — visible at
