@@ -99,6 +99,13 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 
 Unknown flags are ignored, and any section whose data is absent is skipped.
 
+### Model section
+
+With `--model true`, a fourth section shows the active model — the `Model` label on line 1 and
+the name on line 2, colored in tiers: family (Claude orange), version (dim white), context (dim gray).
+
+![status line with the model section, ending in "Opus 4.8 (1M)"](ss-model.png)
+
 ### Responsive
 
 With `--responsive true` (the default), the script reads the `$COLUMNS` environment variable
