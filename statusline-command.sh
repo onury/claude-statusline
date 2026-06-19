@@ -1,5 +1,6 @@
 #!/bin/sh
 # Claude Code status line
+# https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset
 #   Line 2:        per-cell green->red progress bar under each segment
 input=$(cat)
