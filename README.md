@@ -70,15 +70,36 @@ Claude Code pipes a JSON object to the script on stdin. This script reads:
 
 ## Customizing
 
-All knobs live near the top of the script / in the `bar()` function:
+Pass options on the command line in `settings.json` — no need to edit the script:
 
-- **`BARW=15`** — cells per bar. Line-1 sections are padded to this width so the pipes
-  line up with the bars below.
-- **Bar glyph** — `▘` (upper-left quadrant: half-width, half-height, top-aligned). Swap for
-  `▖` (bottom-aligned), `▌` (full height), `█` (full block), `▂` (full-width quarter height), etc.
-- **Brightness** — `br = (i < filled) ? 0.80 : 0.22` in `bar()` sets filled vs. track
-  brightness. `MID` / `BRIGHT` / `REDIM` control the line-1 text tiers.
-- **Reset formats** — `+%H:%M` (5hr time) and `+'%b %d'` (weekly date).
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "sh ~/.claude/statusline-command.sh --width 20 --sections tokens,week"
+  }
+}
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--width N`       | `15`              | Cells per bar / width of each line-1 field. |
+| `--glyph CHAR`    | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
+| `--sections LIST` | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`. |
+| `--time FMT`      | `%H:%M`           | `strftime` format for the 5-hour reset clock. |
+| `--date FMT`      | `%b %d`           | `strftime` format for the weekly reset date. |
+| `--fill F`        | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
+| `--track F`       | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
+
+Unknown flags are ignored, and any section whose data is absent is skipped.
+
+### Pipe alignment is always preserved
+
+Both lines use the same per-section width and ` | ` separator, so the pipes stay vertically
+aligned under any settings. If a custom `--date`/`--time` makes a field overflow `--width`,
+every **non-last** field is clipped to exactly `--width` (so later pipes don't shift); only
+the **last** field is allowed to overflow, since nothing follows it. Widen with `--width` if
+a format gets clipped. Note: a multi-column `--glyph` (e.g. an emoji) will break alignment.
 
 ## Testing
 
