@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v1.2.2
+# Claude Code status line  —  v1.2.3
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
@@ -18,8 +18,8 @@
 #                        Shows an animated ••• once the last-known reset has passed
 #                        — data only refreshes on session activity, so an idle
 #                        countdown awaits fresh data instead of freezing at -00:00.
-#                        The dots advance one step per render; pair with a low
-#                        refreshInterval for a smooth spinner.)
+#                        The dots advance one step per render at any
+#                        refreshInterval; pair with a low one for a faster spin.)
 #   --fill F            brightness 0..1 of filled cells              (default 0.80)
 #   --track F           brightness 0..1 of the unfilled track        (default 0.22)
 #   --model true|false  append a Model section (name on line 2)      (default false)
@@ -121,11 +121,11 @@ clock_hm() {
 day_word() {
     if [ "$1" -eq 1 ]; then printf -- '%s1day' "$2"; else printf -- '%s%ddays' "$2" "$1"; fi
 }
-# Awaiting-reset indicator: a dot sliding across three slots.  Driven by the wall
-# clock (NOW), so it animates one step per render — smooth at refreshInterval 1,
-# slower at higher intervals; the work is just a modulo, no extra processes.
+# Awaiting-reset indicator: a dot sliding across three slots.  Advances by the
+# per-render counter SPIN (not the wall clock), so it never aliases — it steps
+# once every render regardless of refreshInterval (no value can freeze it).
 awaiting() {
-    case "$(( NOW % 3 ))" in
+    case "$(( SPIN % 3 ))" in
         0) printf ' \342\200\242\302\267\302\267' ;;   # •··
         1) printf ' \302\267\342\200\242\302\267' ;;   # ·•·
         *) printf ' \302\267\302\267\342\200\242' ;;   # ··•
@@ -208,6 +208,17 @@ fi
 
 # Precompute per-section content.
 NOW=$(date +%s)
+# Spin counter for the awaiting-reset animation: advance ONCE per render (so it
+# steps regardless of refreshInterval), and only while an indicator is on screen,
+# so normal renders touch no files.  State lives in a tiny temp file.
+SPIN=0
+if { [ -n "$fh_reset" ] && [ "$fh_reset" -le "$NOW" ]; } ||
+   { [ -n "$wk_reset" ] && [ "$wk_reset" -le "$NOW" ]; }; then
+    sf="${TMPDIR:-/tmp}/.cc-statusline-spin"
+    [ -f "$sf" ] && read -r SPIN < "$sf" 2>/dev/null
+    case "$SPIN" in *[!0-9]*|"") SPIN=0 ;; esac
+    printf '%s' "$(( (SPIN + 1) % 2999997 ))" > "$sf" 2>/dev/null   # wrap stays a multiple of 3
+fi
 fh_t=""; [ -n "$fh_reset" ] && fh_t=$(fh_field "$fh_reset" "$NOW")
 wk_d=""; [ -n "$wk_reset" ] && wk_d=$(wk_field "$wk_reset" "$NOW")
 [ -n "$fh_pct" ] && fh_r=$(printf "%.0f" "$fh_pct")
