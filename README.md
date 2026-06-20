@@ -1,6 +1,6 @@
 # claude-statusline
 
-[![Version](https://img.shields.io/badge/version-1.3.0-CB6D4D)](statusline-command.sh)
+[![Version](https://img.shields.io/github/v/release/onury/claude-statusline?label=version&color=CB6D4D)](https://github.com/onury/claude-statusline/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-4EAA25?logo=gnubash&logoColor=white)
 ![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-730A8B)
