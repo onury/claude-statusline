@@ -1,6 +1,6 @@
 # claude-statusline
 
-[![Version](https://img.shields.io/badge/version-1.2.3-CB6D4D)](statusline-command.sh)
+[![Version](https://img.shields.io/badge/version-1.3.0-CB6D4D)](statusline-command.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-4EAA25?logo=gnubash&logoColor=white)
 ![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-730A8B)
@@ -33,9 +33,11 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
   as you approach a limit.
 - **Three brightness tiers** on line 1: dim `/total` < medium used-token count < bright `%`.
 - **Right-aligned, brightened `%`** at the end of each section.
-- **Graceful degradation** — the `rate_limits` object is absent for API-key sessions and
-  before the first API response; those sections (and their bars) simply don't render until
-  data exists. The token section always shows.
+- **Awaiting placeholders** — the `rate_limits` object is absent before the first API
+  response (and for API-key sessions). Until data arrives, the `5hr`/`Week` sections show
+  an animated `•••` indicator in place of the numbers, then fill in once it lands — so the
+  layout never jumps. API-key sessions never get this data; drop the sections there with
+  `--sections tokens,model`. The token section always shows.
 - Top-aligned quarter-cell ticks (`▘`) for a slim look.
 - Pure `sh` + `jq` + `awk`; 24-bit truecolor.
 

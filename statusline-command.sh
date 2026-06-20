@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v1.2.3
+# Claude Code status line  —  v1.3.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
@@ -185,13 +185,15 @@ bar() {
     }'
 }
 
-# Decide which requested sections actually have data, preserving requested order.
+# Decide which requested sections to show, preserving requested order.
+# The 5hr/week rate sections always show once requested: with no data yet (new
+# session, before the first API response) they render the awaiting indicator.
 avail=""
 for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
     case "$s" in
         tokens) [ "$ctx_size" -gt 0 ] && avail="$avail tokens" ;;
-        5hr)    [ -n "$fh_pct" ]      && avail="$avail 5hr" ;;
-        week)   [ -n "$wk_pct" ]      && avail="$avail week" ;;
+        5hr)    avail="$avail 5hr" ;;
+        week)   avail="$avail week" ;;
         model)  [ -n "$model_name" ]  && avail="$avail model" ;;
     esac
 done
@@ -208,12 +210,19 @@ fi
 
 # Precompute per-section content.
 NOW=$(date +%s)
-# Spin counter for the awaiting-reset animation: advance ONCE per render (so it
-# steps regardless of refreshInterval), and only while an indicator is on screen,
-# so normal renders touch no files.  State lives in a tiny temp file.
+# Spin counter for the awaiting animation: advance ONCE per render (so it steps
+# regardless of refreshInterval), and only while an indicator is on screen, so
+# normal renders touch no files.  An indicator shows for a requested rate section
+# that has no data yet OR whose last-known reset has already passed.
+spin=0
+for s in 5hr week; do
+    case ",$SECTIONS," in *",$s,"*) ;; *) continue ;; esac
+    if [ "$s" = "5hr" ]; then p="$fh_pct"; r="$fh_reset"; else p="$wk_pct"; r="$wk_reset"; fi
+    if [ -z "$p" ]; then spin=1
+    elif [ -n "$r" ] && [ "$r" -le "$NOW" ]; then spin=1; fi
+done
 SPIN=0
-if { [ -n "$fh_reset" ] && [ "$fh_reset" -le "$NOW" ]; } ||
-   { [ -n "$wk_reset" ] && [ "$wk_reset" -le "$NOW" ]; }; then
+if [ "$spin" = 1 ]; then
     sf="${TMPDIR:-/tmp}/.cc-statusline-spin"
     [ -f "$sf" ] && read -r SPIN < "$sf" 2>/dev/null
     case "$SPIN" in *[!0-9]*|"") SPIN=0 ;; esac
@@ -257,8 +266,10 @@ for s in $avail; do
     else
         case "$s" in
             tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
-            5hr)    lp="5hr${fh_t}";  ls="$lp"; pct="${fh_r}%"; bp="$fh_r" ;;
-            week)   lp="Week${wk_d}";  ls="$lp"; pct="${wk_r}%"; bp="$wk_r" ;;
+            5hr)    if [ -z "$fh_pct" ]; then lp="5hr$(awaiting)"; pct=""; bp=0
+                    else lp="5hr${fh_t}"; pct="${fh_r}%"; bp="$fh_r"; fi; ls="$lp" ;;
+            week)   if [ -z "$wk_pct" ]; then lp="Week$(awaiting)"; pct=""; bp=0
+                    else lp="Week${wk_d}"; pct="${wk_r}%"; bp="$wk_r"; fi; ls="$lp" ;;
         esac
         pad=$(( BARW - ${#lp} - ${#pct} ))
         if [ "$last" -eq 1 ]; then
