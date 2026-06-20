@@ -125,6 +125,8 @@ Unknown flags are ignored, and any section whose data is absent is skipped.
 > ```
 >
 > With the default `--time reset`, the field is a fixed point that changes only on activity anyway, so a timer would just re-run the script for no visible gain — leave `refreshInterval` off.
+>
+> Note: `resets_at` only refreshes on session activity, so an idle countdown can reach the reset before fresh data arrives. When that happens the field shows `now` (rather than a stuck `-00:00`) until the next update lands.
 
 ### Model section
 
