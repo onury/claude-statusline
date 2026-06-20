@@ -13,9 +13,16 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
 
 - **Line 1** — three sections separated by ` | `:
   - `used/total` tokens + context-window `%`
-  - `5hr <reset time>` + 5-hour rate-limit `%`
-  - `Week <reset date>` + 7-day rate-limit `%`
+  - `5hr <time>` + 5-hour rate-limit `%`
+  - `Week <time>` + 7-day rate-limit `%`
 - **Line 2** — a 15-cell gradient bar under each section.
+
+> [!NOTE]
+> For the `5hr` and `Week` sections, the `%` and bar are **quota usage** (how much of the
+> window's limit you've consumed), while the time next to the label is the **window clock**
+> (see `--time` below). These are independent: `Week -5days … 3%` means 5 days until reset
+> *and* only 3% used — low usage doesn't mean more time left, and a near-full bar doesn't
+> mean the reset is close.
 
 ## Features
 
@@ -98,14 +105,26 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 | `--width N`             | `15`              | Cells per bar / width of each line-1 field. |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
 | `--sections LIST`       | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`, `model`. |
-| `--time FMT`            | `%H:%M`           | `strftime` format for the 5-hour reset clock. |
-| `--date FMT`            | `%b %d`           | `strftime` format for the weekly reset date. |
+| `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun 25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
 | `--model true\|false`   | `false`           | Append a **Model** section — label on line 1, model name + context size on line 2 (e.g. `Opus 4.8 (1M)`). |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
 
 Unknown flags are ignored, and any section whose data is absent is skipped.
+
+> [!TIP]
+> **Set [`refreshInterval`](https://code.claude.com/docs/en/statusline) only when using `--time remaining` or `--time elapsed`.** Claude Code re-runs the status line on session activity (a new message, tool call, etc.), so a ticking clock looks frozen while you sit idle. Add `refreshInterval` (seconds) next to `command` to make it advance on its own — `10` is a good balance for the minute-level clock:
+>
+> ```json
+> "statusLine": {
+>   "type": "command",
+>   "command": "sh ~/.claude/statusline-command.sh --time remaining",
+>   "refreshInterval": 10
+> }
+> ```
+>
+> With the default `--time reset`, the field is a fixed point that changes only on activity anyway, so a timer would just re-run the script for no visible gain — leave `refreshInterval` off.
 
 ### Model section
 
@@ -124,7 +143,7 @@ kept. Set `--responsive false` to always render every section even if it wraps.
 ### Pipe alignment is always preserved
 
 Both lines use the same per-section width and ` | ` separator, so the pipes stay vertically
-aligned under any settings. If a custom `--date`/`--time` (or a long model name) overflows
+aligned under any settings. If a field (e.g. a long model name) overflows
 `--width`, every **non-last** field is clipped to exactly `--width` (so later pipes don't
 shift); only the **last** field is allowed to overflow, since nothing follows it. Widen with
 `--width` if something gets clipped. Note: a multi-column `--glyph` (e.g. an emoji) breaks alignment.

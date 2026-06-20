@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v1.0.0
+# Claude Code status line  —  v1.2.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
@@ -9,8 +9,12 @@
 #   --width N           cells per bar / width of each line-1 field   (default 15)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
 #   --sections LIST     comma list / order: tokens,5hr,week,model    (default tokens,5hr,week)
-#   --time FMT          strftime for the 5hr reset clock             (default %H:%M)
-#   --date FMT          strftime for the weekly reset date           (default %b %d)
+#   --time MODE         what the 5hr/week time field shows           (default reset)
+#                         reset      reset point          @23:00   @Jun 25
+#                         remaining  time left, ticks down -04:30   -6days
+#                         elapsed    time used, ticks up   +00:30   +1day
+#                       (@ = at, - = before reset / down, + = since start / up;
+#                        week switches to the -HH:MM/+HH:MM clock under 1 day)
 #   --fill F            brightness 0..1 of filled cells              (default 0.80)
 #   --track F           brightness 0..1 of the unfilled track        (default 0.22)
 #   --model true|false  append a Model section (name on line 2)      (default false)
@@ -23,8 +27,11 @@
 WIDTH=15
 GLYPH="▘"
 SECTIONS="tokens,5hr,week"
-TIMEFMT="%H:%M"
-DATEFMT="%b %d"
+TMODE="reset"         # reset | remaining | elapsed
+TIMEFMT="%H:%M"       # 5hr reset clock (fixed)
+DATEFMT="%b %d"       # weekly reset date (fixed)
+FH_LEN=18000          # 5-hour window length, seconds
+WK_LEN=604800         # 7-day window length, seconds
 FILL="0.80"
 TRACK="0.22"
 MODEL="false"
@@ -36,8 +43,7 @@ while [ $# -gt 0 ]; do
         --width)      WIDTH="$2";      shift 2 ;;
         --glyph)      GLYPH="$2";      shift 2 ;;
         --sections)   SECTIONS="$2";   shift 2 ;;
-        --time)       TIMEFMT="$2";    shift 2 ;;
-        --date)       DATEFMT="$2";    shift 2 ;;
+        --time)       TMODE="$2";      shift 2 ;;
         --fill)       FILL="$2";       shift 2 ;;
         --track)      TRACK="$2";      shift 2 ;;
         --model)      MODEL="$2";      shift 2 ;;
@@ -48,6 +54,7 @@ done
 case "$WIDTH" in *[!0-9]*|"") WIDTH=15 ;; esac   # guard: positive integer
 [ "$WIDTH" -lt 1 ] && WIDTH=1
 BARW="$WIDTH"
+case "$TMODE" in reset|remaining|elapsed) ;; *) TMODE="reset" ;; esac   # guard
 # --model true appends the model section (if not already requested).
 if [ "$MODEL" = "true" ]; then
     case ",$SECTIONS," in *,model,*) ;; *) SECTIONS="$SECTIONS,model" ;; esac
@@ -99,6 +106,36 @@ fmtctx() {
     if   [ "$n" -ge 1000000 ]; then echo "$(( n / 1000000 ))M"
     elif [ "$n" -ge 1000 ];    then echo "$(( n / 1000 ))K"
     else echo "$n"; fi
+}
+# A signed "HH:MM" clock for a duration in seconds.  $1=seconds (clamped >=0) $2=sign
+clock_hm() {
+    s=$1; [ "$s" -lt 0 ] && s=0
+    printf -- '%s%02d:%02d' "$2" "$(( s / 3600 ))" "$(( (s % 3600) / 60 ))"
+}
+# A signed day count with singular/plural word.  $1=days $2=sign  ->  "-6days" / "+1day"
+day_word() {
+    if [ "$1" -eq 1 ]; then printf -- '%s1day' "$2"; else printf -- '%s%ddays' "$2" "$1"; fi
+}
+# 5hr time field for the active --time mode (leading space included).  $1=resets_at $2=now
+fh_field() {
+    rem=$(( $1 - $2 ))
+    case "$TMODE" in
+        reset)     printf ' @%s' "$(date -r "$1" +"$TIMEFMT" 2>/dev/null)" ;;
+        remaining) printf ' %s'  "$(clock_hm "$rem" '-')" ;;
+        elapsed)   printf ' %s'  "$(clock_hm "$(( FH_LEN - rem ))" '+')" ;;
+    esac
+}
+# Weekly time field: whole days while >=1 day away, else the signed clock.  $1=resets_at $2=now
+wk_field() {
+    rem=$(( $1 - $2 )); [ "$rem" -lt 0 ] && rem=0
+    case "$TMODE" in
+        reset)     printf ' @%s' "$(date -r "$1" +"$DATEFMT" 2>/dev/null)" ;;
+        remaining) if [ "$rem" -ge 86400 ]; then printf ' %s' "$(day_word "$(( (rem + 86399) / 86400 ))" '-')"
+                   else printf ' %s' "$(clock_hm "$rem" '-')"; fi ;;
+        elapsed)   el=$(( WK_LEN - rem )); [ "$el" -lt 0 ] && el=0
+                   if [ "$el" -ge 86400 ]; then printf ' %s' "$(day_word "$(( el / 86400 ))" '+')"
+                   else printf ' %s' "$(clock_hm "$el" '+')"; fi ;;
+    esac
 }
 # Left-align text to exactly N columns (pad with spaces, or clip if too long)
 fit() {
@@ -152,8 +189,9 @@ if [ "$RESPONSIVE" = "true" ] && [ "$cols" -gt 0 ]; then
 fi
 
 # Precompute per-section content.
-fh_t=""; [ -n "$fh_reset" ] && fh_t=" $(date -r "$fh_reset" +"$TIMEFMT" 2>/dev/null)"
-wk_d="";  [ -n "$wk_reset" ] && wk_d=" $(date -r "$wk_reset" +"$DATEFMT" 2>/dev/null)"
+NOW=$(date +%s)
+fh_t=""; [ -n "$fh_reset" ] && fh_t=$(fh_field "$fh_reset" "$NOW")
+wk_d=""; [ -n "$wk_reset" ] && wk_d=$(wk_field "$wk_reset" "$NOW")
 [ -n "$fh_pct" ] && fh_r=$(printf "%.0f" "$fh_pct")
 [ -n "$wk_pct" ] && wk_r=$(printf "%.0f" "$wk_pct")
 if [ "$ctx_size" -gt 0 ]; then tok_used=$(fmtk "$total"); tok_tot=$(fmtk "$ctx_size"); fi
