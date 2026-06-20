@@ -1,5 +1,6 @@
 # claude-statusline
 
+[![Version](https://img.shields.io/badge/version-1.2.3-CB6D4D)](statusline-command.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Shell: POSIX sh](https://img.shields.io/badge/shell-POSIX%20sh-4EAA25?logo=gnubash&logoColor=white)
 ![Platform: macOS | Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-730A8B)
