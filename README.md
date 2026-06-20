@@ -126,7 +126,7 @@ Unknown flags are ignored, and any section whose data is absent is skipped.
 >
 > With the default `--time reset`, the field is a fixed point that changes only on activity anyway, so a timer would just re-run the script for no visible gain — leave `refreshInterval` off.
 >
-> Note: `resets_at` only refreshes on session activity, so an idle countdown can reach the reset before fresh data arrives. When that happens the field shows `now` (rather than a stuck `-00:00`) until the next update lands.
+> Note: `resets_at` only refreshes on session activity, so an idle countdown can reach the reset before fresh data arrives. When that happens the field shows an animated `•••` "awaiting" indicator (rather than a stuck `-00:00`) until the next update lands. The dot advances one step per render — set `refreshInterval: 1` for a smooth spinner, or leave it at `10` for a gentle pulse at no extra cost.
 
 ### Model section
 

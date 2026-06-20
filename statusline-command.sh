@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v1.2.1
+# Claude Code status line  —  v1.2.2
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
@@ -15,9 +15,11 @@
 #                         elapsed    time used, ticks up   +00:30   +1day
 #                       (@ = at, - = before reset / down, + = since start / up;
 #                        week switches to the -HH:MM/+HH:MM clock under 1 day.
-#                        Shows "now" once the last-known reset has passed — data
-#                        only refreshes on session activity, so an idle countdown
-#                        rests at "now" instead of a frozen -00:00.)
+#                        Shows an animated ••• once the last-known reset has passed
+#                        — data only refreshes on session activity, so an idle
+#                        countdown awaits fresh data instead of freezing at -00:00.
+#                        The dots advance one step per render; pair with a low
+#                        refreshInterval for a smooth spinner.)
 #   --fill F            brightness 0..1 of filled cells              (default 0.80)
 #   --track F           brightness 0..1 of the unfilled track        (default 0.22)
 #   --model true|false  append a Model section (name on line 2)      (default false)
@@ -119,11 +121,21 @@ clock_hm() {
 day_word() {
     if [ "$1" -eq 1 ]; then printf -- '%s1day' "$2"; else printf -- '%s%ddays' "$2" "$1"; fi
 }
+# Awaiting-reset indicator: a dot sliding across three slots.  Driven by the wall
+# clock (NOW), so it animates one step per render — smooth at refreshInterval 1,
+# slower at higher intervals; the work is just a modulo, no extra processes.
+awaiting() {
+    case "$(( NOW % 3 ))" in
+        0) printf ' \342\200\242\302\267\302\267' ;;   # •··
+        1) printf ' \302\267\342\200\242\302\267' ;;   # ·•·
+        *) printf ' \302\267\302\267\342\200\242' ;;   # ··•
+    esac
+}
 # 5hr time field for the active --time mode (leading space included).  $1=resets_at $2=now
-# Once the last-known reset has passed (stale data while idle), show " now".
+# Once the last-known reset has passed (stale data while idle), show the indicator.
 fh_field() {
     rem=$(( $1 - $2 ))
-    [ "$rem" -le 0 ] && { printf ' now'; return; }
+    [ "$rem" -le 0 ] && { awaiting; return; }
     case "$TMODE" in
         reset)     printf ' @%s' "$(date -r "$1" +"$TIMEFMT" 2>/dev/null)" ;;
         remaining) printf ' %s'  "$(clock_hm "$rem" '-')" ;;
@@ -133,7 +145,7 @@ fh_field() {
 # Weekly time field: whole days while >=1 day away, else the signed clock.  $1=resets_at $2=now
 wk_field() {
     rem=$(( $1 - $2 ))
-    [ "$rem" -le 0 ] && { printf ' now'; return; }
+    [ "$rem" -le 0 ] && { awaiting; return; }
     case "$TMODE" in
         reset)     printf ' @%s' "$(date -r "$1" +"$DATEFMT" 2>/dev/null)" ;;
         remaining) if [ "$rem" -ge 86400 ]; then printf ' %s' "$(day_word "$(( (rem + 86399) / 86400 ))" '-')"
