@@ -15,5 +15,4 @@ Thumbs.db
 # Local GIF-recording helpers (the rendered demo.gif is committed, the tooling isn't)
 /demo/
 
-# Promotion / launch kit — working copy, not shipped
 /_promote/
