@@ -16,7 +16,7 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
   - `used/total` tokens + context-window `%`
   - `5hr <time>` + 5-hour rate-limit `%`
   - `Week <time>` + 7-day rate-limit `%`
-- **Line 2** — a 15-cell gradient bar under each section.
+- **Line 2** — a 16-cell gradient bar under each section.
 
 > [!NOTE]
 > For the `5hr` and `Week` sections, the `%` and bar are **quota usage** (how much of the
@@ -106,15 +106,16 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--width N`             | `15`              | Cells per bar / width of each line-1 field. |
+| `--width N`             | `16`              | Cells per bar / width of each line-1 field. |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
 | `--sections LIST`       | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`, `branch`, `model`. |
-| `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun 25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
+| `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
 | `--branch true\|false`  | `true`            | Append a **Branch** section — label on line 1, the working git branch on line 2 (the short commit hash when detached). On by default; skipped when the workspace isn't a git repo. Set `--branch false` to hide it. |
 | `--model true\|false`   | `false`           | Append a **Model** section — label on line 1, model name + context size on line 2 (e.g. `Opus 4.8 (1M)`). |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
+| `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model` sections show their value (e.g. `main`, `Opus 4.8 (1M)`) in place of the label. |
 
 Unknown flags are ignored, and any section whose data is absent is skipped.
 
@@ -147,6 +148,18 @@ With `--model true`, a fourth section shows the active model — the `Model` lab
 the name on line 2, colored in tiers: family (Claude orange), version (dim white), context (dim gray).
 
 ![status line with the model section, ending in "Opus 4.8 (1M)"](ss-model.png)
+
+### Compact layout (single line)
+
+With `--layout compact`, the status line collapses to **one line** — the line-2 bars are dropped, and the
+`branch`/`model` sections show their value directly (since there's no second line to hold it):
+
+```
+191k/1000k   19% | 5hr -02:37   12% | Week -6days   7% | main | Opus 4.8 (1M)
+```
+
+The token/5hr/week sections keep their right-aligned, gradient-colored `%`; the `branch` (blue) and
+`model` values fit their own content. Pairs naturally with `--time remaining` or `--time elapsed`.
 
 ### Responsive
 

@@ -1,16 +1,16 @@
 #!/bin/sh
-# Claude Code status line  —  v1.4.0
+# Claude Code status line  —  v1.5.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
 #
 # Options (pass in settings.json, e.g.
 #   "command": "sh ~/.claude/statusline-command.sh --width 20 --model true"):
-#   --width N           cells per bar / width of each line-1 field   (default 15)
+#   --width N           cells per bar / width of each line-1 field   (default 16)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
 #   --sections LIST     comma list / order: tokens,5hr,week,branch,model (default tokens,5hr,week)
 #   --time MODE         what the 5hr/week time field shows           (default reset)
-#                         reset      reset point          @23:00   @Jun 25
+#                         reset      reset point          @23:00   @Jun25
 #                         remaining  time left, ticks down -04:30   -6days
 #                         elapsed    time used, ticks up   +00:30   +1day
 #                       (@ = at, - = before reset / down, + = since start / up;
@@ -25,17 +25,19 @@
 #   --branch true|false append a Branch section (git branch, line 2) (default true)
 #   --model true|false  append a Model section (name on line 2)      (default false)
 #   --responsive true|false  drop sections from the right to fit $COLUMNS (default true)
+#   --layout expanded|compact  expanded = two lines w/ bars; compact = single line,
+#                       no bars, branch/model show their value             (default expanded)
 # Pipe alignment is preserved for any settings: every non-last field is rendered to
 # exactly --width columns (overlong text is clipped); only the last field may overflow,
 # which never shifts a pipe.
 
 # ---- defaults ----
-WIDTH=15
+WIDTH=16
 GLYPH="▘"
 SECTIONS="tokens,5hr,week"
 TMODE="reset"         # reset | remaining | elapsed
 TIMEFMT="%H:%M"       # 5hr reset clock (fixed)
-DATEFMT="%b %d"       # weekly reset date (fixed)
+DATEFMT="%b%d"        # weekly reset date, no space so it fits the column (e.g. Jun30)
 FH_LEN=18000          # 5-hour window length, seconds
 WK_LEN=604800         # 7-day window length, seconds
 FILL="0.80"
@@ -43,6 +45,7 @@ TRACK="0.22"
 BRANCH="true"
 MODEL="false"
 RESPONSIVE="true"
+LAYOUT="expanded"     # expanded | compact
 
 # ---- args ----
 while [ $# -gt 0 ]; do
@@ -56,13 +59,15 @@ while [ $# -gt 0 ]; do
         --branch)     BRANCH="$2";     shift 2 ;;
         --model)      MODEL="$2";      shift 2 ;;
         --responsive) RESPONSIVE="$2"; shift 2 ;;
+        --layout)     LAYOUT="$2";     shift 2 ;;
         *)            shift ;;         # ignore unknown
     esac
 done
-case "$WIDTH" in *[!0-9]*|"") WIDTH=15 ;; esac   # guard: positive integer
+case "$WIDTH" in *[!0-9]*|"") WIDTH=16 ;; esac   # guard: positive integer
 [ "$WIDTH" -lt 1 ] && WIDTH=1
 BARW="$WIDTH"
 case "$TMODE" in reset|remaining|elapsed) ;; *) TMODE="reset" ;; esac   # guard
+case "$LAYOUT" in expanded|compact) ;; *) LAYOUT="expanded" ;; esac      # guard
 # --branch / --model append their sections (if not already requested).
 # Branch is appended first so it lands before model when both flags are set.
 if [ "$BRANCH" = "true" ]; then
@@ -110,10 +115,10 @@ BRIGHT="${ESC}[22m"   # normal intensity — makes the % stand out against the d
 REDIM="${ESC}[2m"     # back to faint
 MID="${ESC}[22m${ESC}[38;2;200;200;200m"   # medium: brighter than dim, dimmer than %
 MIDOFF="${ESC}[39m${REDIM}"                 # restore default color + faint
-MC_NAME="${ESC}[38;2;190;105;77m"   # model family — Claude orange, a little dim
+MC_NAME="${ESC}[22m${ESC}[38;2;190;105;77m"   # model family — Claude orange, normal intensity (resists the dim line)
 MC_VER="${ESC}[38;2;205;205;205m"   # version — dimmed white
 MC_CTX="${ESC}[38;2;135;135;135m"   # (context) — dimmed gray
-MC_BRANCH="${ESC}[38;2;97;160;235m"   # git branch — blue
+MC_BRANCH="${ESC}[22m${ESC}[38;2;97;160;235m"   # git branch — blue, normal intensity (resists the dim line)
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -200,6 +205,21 @@ bar() {
     }'
 }
 
+# Truecolor escape for the % label: the bar's leading-edge gradient color at p%,
+# dimmed a touch below the filled-bar brightness so it reads as a value, not a cell.
+pct_color() {
+    awk -v p="$1" -v w="$BARW" -v esc="$ESC" -v fill="$FILL" 'BEGIN {
+        br = fill * 0.78;                       # a dimmed version of the bar color
+        filled = int(p / 100 * w + 0.5);
+        front = filled - 1;                     # the leading (last filled) cell
+        if (front < 0) front = 0; if (front > w - 1) front = w - 1;
+        f = (w > 1) ? front / (w - 1) : 0;
+        if (f <= 0.5) { r = f * 2 * 255; g = 255 }
+        else          { r = 255; g = (1 - f) * 2 * 255 }
+        printf "%s[22m%s[38;2;%d;%d;0m", esc, esc, int(r * br + 0.5), int(g * br + 0.5);
+    }'
+}
+
 # Decide which requested sections to show, preserving requested order.
 # The 5hr/week rate sections always show once requested: with no data yet (new
 # session, before the first API response) they render the awaiting indicator.
@@ -277,16 +297,22 @@ for s in $avail; do
         else
             label="Branch"; valtext="$git_branch"; styled="${MC_BRANCH}${valtext}${RST}"
         fi
-        colw=${#label}; [ "${#valtext}" -gt "$colw" ] && colw=${#valtext}
-        seg=$(printf '%-*s' "$colw" "$label")
-        barseg="${styled}$(printf '%*s' "$(( colw - ${#valtext} ))" '')"
+        if [ "$LAYOUT" = "compact" ]; then
+            # Single line: the value itself stands in (no label, no second line).
+            # Re-assert dim after the value's reset so the next separator stays dim.
+            seg="${styled}${DIM}"
+        else
+            colw=${#label}; [ "${#valtext}" -gt "$colw" ] && colw=${#valtext}
+            seg=$(printf '%-*s' "$colw" "$label")
+            barseg="${styled}$(printf '%*s' "$(( colw - ${#valtext} ))" '')"
+        fi
     else
         case "$s" in
             tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
-            5hr)    if [ -z "$fh_pct" ]; then lp="5hr$(awaiting)"; pct=""; bp=0
-                    else lp="5hr${fh_t}"; pct="${fh_r}%"; bp="$fh_r"; fi; ls="$lp" ;;
-            week)   if [ -z "$wk_pct" ]; then lp="Week$(awaiting)"; pct=""; bp=0
-                    else lp="Week${wk_d}"; pct="${wk_r}%"; bp="$wk_r"; fi; ls="$lp" ;;
+            5hr)    if [ -z "$fh_pct" ]; then lp="5hr$(awaiting)"; ls="$lp"; pct=""; bp=0
+                    else lp="5hr${fh_t}"; ls="5hr${MID}${fh_t}${MIDOFF}"; pct="${fh_r}%"; bp="$fh_r"; fi ;;
+            week)   if [ -z "$wk_pct" ]; then lp="Week$(awaiting)"; ls="$lp"; pct=""; bp=0
+                    else lp="Week${wk_d}"; ls="Week${MID}${wk_d}${MIDOFF}"; pct="${wk_r}%"; bp="$wk_r"; fi ;;
         esac
         pad=$(( BARW - ${#lp} - ${#pct} ))
         if [ "$last" -eq 1 ]; then
@@ -296,8 +322,9 @@ for s in $avail; do
             lp=$(printf '%.*s' "$clip" "$lp"); ls="$lp"; pad=1
         fi
         spaces=$(printf "%*s" "$pad" "")
-        seg="${ls}${spaces}${BRIGHT}${pct}${REDIM}"
-        barseg="$(bar "$bp")"
+        if [ -n "$pct" ]; then pcol="$(pct_color "$bp")"; else pcol="$BRIGHT"; fi
+        seg="${ls}${spaces}${pcol}${pct}${MIDOFF}"
+        [ "$LAYOUT" = "compact" ] || barseg="$(bar "$bp")"
     fi
 
     if [ -z "$L1" ]; then
@@ -308,5 +335,9 @@ for s in $avail; do
 done
 
 if [ -n "$L1" ]; then
-    printf "%s%s%s\n%s\n" "$DIM" "$L1" "$RST" "$L2"
+    if [ "$LAYOUT" = "compact" ]; then
+        printf "%s%s%s\n" "$DIM" "$L1" "$RST"
+    else
+        printf "%s%s%s\n%s\n" "$DIM" "$L1" "$RST" "$L2"
+    fi
 fi
