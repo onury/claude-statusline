@@ -7,10 +7,13 @@ Adjust the `statusLine.command` string in `~/.claude/settings.json` per this req
 That command invokes `sh ~/.claude/statusline-command.sh` with flags. Map the request to flags:
 
 - `compact` / `expanded` → set `--layout <value>`
-- a bare comma-list of section names (any of `tokens`, `5hr`, `week`, `branch`, `model`,
-  e.g. `tokens,branch,model`) → set `--sections <list>`
+- a bare comma-list of section names (any of `context`, `5hr`, `week`, `branch`, `model`,
+  e.g. `context,branch,model`) → set `--sections <list>` (sections render in the order given;
+  `tokens` is a legacy alias for `context`)
 - `sections <list>` → set `--sections <list>`
-- `model on|off`, `branch on|off` → `--model true|false` / `--branch true|false`
+- `model on|off`, `branch on|off` → add/remove that section in `--sections` (there are no
+  `--model`/`--branch` flags). `on` appends the section if absent; `off` removes it. If
+  `--sections` isn't present yet, start from the default `context,5hr,week,branch`.
 - `time reset|remaining|elapsed` → `--time <value>`
 - `width N` → `--width N`
 - `responsive on|off` → `--responsive true|false`
@@ -34,13 +37,13 @@ Special cases — do NOT edit settings.json for these, just print:
 - `$ARGUMENTS` is `help` → print this usage list:
 
   ```
-  /sl                      show current config + options
-  /sl help                 this list
-  /sl compact | expanded   switch layout
-  /sl tokens,branch,model  set sections (comma list: tokens,5hr,week,branch,model)
-  /sl model on|off         toggle the model section
-  /sl branch on|off        toggle the branch section
+  /sl                       show current config + options
+  /sl help                  this list
+  /sl compact | expanded    switch layout
+  /sl context,branch,model  set sections (comma list: context,5hr,week,branch,model)
+  /sl model on|off          add/remove the model section
+  /sl branch on|off         add/remove the branch section
   /sl time reset|remaining|elapsed
-  /sl width N              bar / field width
-  /sl responsive on|off    drop sections to fit the terminal
+  /sl width N               bar / field width
+  /sl responsive on|off     drop sections to fit the terminal
   ```

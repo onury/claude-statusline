@@ -10,13 +10,15 @@ Never get blindsided by a rate limit again. This drop-in status line keeps your
 context-window, 5-hour, and weekly usage — and how close each is to its cap — visible at
 the bottom of every [Claude Code](https://code.claude.com) prompt.
 
-![claude-statusline: animated token, 5-hour and weekly bars filling green→red, with the model section](demo.gif)
+![claude-statusline: animated context-window, 5-hour and weekly bars filling green→red, with the branch and model sections](demo.gif)
 
-- **Line 1** — three sections separated by ` | `:
-  - `used/total` tokens + context-window `%`
+- **Line 1** — sections separated by ` | ` (default `context,5hr,week,branch`):
+  - `used/total` context tokens + context-window `%`
   - `5hr <time>` + 5-hour rate-limit `%`
   - `Week <time>` + 7-day rate-limit `%`
-- **Line 2** — a 16-cell gradient bar under each section.
+  - `Branch` — the active git branch (shown when the workspace is a git repo)
+- **Line 2** — a 16-cell gradient bar under each rate/context section (the `branch`/`model`
+  sections show their value here instead).
 
 > [!NOTE]
 > For the `5hr` and `Week` sections, the `%` and bar are **quota usage** (how much of the
@@ -32,12 +34,13 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
   but dim), so the full green→red sweep is always visible and red only lights up bright
   as you approach a limit.
 - **Three brightness tiers** on line 1: dim `/total` < medium used-token count < bright `%`.
-- **Right-aligned, brightened `%`** at the end of each section.
+- **Right-aligned, brightened `%`** at the end of each bar section (expanded layout; compact
+  drops the padding and puts a single space before the `%`).
 - **Awaiting placeholders** — the `rate_limits` object is absent before the first API
   response (and for API-key sessions). Until data arrives, the `5hr`/`Week` sections show
   an animated `•••` indicator in place of the numbers, then fill in once it lands — so the
   layout never jumps. API-key sessions never get this data; drop the sections there with
-  `--sections tokens,model`. The token section always shows.
+  `--sections context,model`. The context section always shows.
 - Top-aligned quarter-cell ticks (`▘`) for a slim look.
 - Pure `sh` + `jq` + `awk`; 24-bit truecolor.
 
@@ -85,8 +88,8 @@ Claude Code pipes a JSON object to the script on stdin. This script reads:
 | `.rate_limits.five_hour.resets_at`        | 5-hour reset (Unix epoch) |
 | `.rate_limits.seven_day.used_percentage`  | 7-day window usage % |
 | `.rate_limits.seven_day.resets_at`        | 7-day reset (Unix epoch) |
-| `.model.display_name`                     | model name for the `--model` section |
-| `.workspace.current_dir` (or `.cwd`)      | working dir for the `--branch` section's git lookup |
+| `.model.display_name`                     | model name for the `model` section |
+| `.workspace.current_dir` (or `.cwd`)      | working dir for the `branch` section's git lookup |
 
 Terminal width for `--responsive` comes from the `$COLUMNS` environment variable, which
 Claude Code sets before each run (requires Claude Code v2.1.153+).
@@ -99,25 +102,25 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 {
   "statusLine": {
     "type": "command",
-    "command": "sh ~/.claude/statusline-command.sh --width 20 --sections tokens,week"
+    "command": "sh ~/.claude/statusline-command.sh --width 20 --sections context,week"
   }
 }
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--width N`             | `16`              | Cells per bar / width of each line-1 field. |
+| `--width N`             | `16`              | Cells per bar / width of each line-1 field (expanded layout; compact fits content). |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
-| `--sections LIST`       | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`, `branch`, `model`. |
+| `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `branch`, `model`. (`tokens` is accepted as a legacy alias for `context`.) |
 | `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
-| `--branch true\|false`  | `true`            | Append a **Branch** section — label on line 1, the working git branch on line 2 (the short commit hash when detached). On by default; skipped when the workspace isn't a git repo. Set `--branch false` to hide it. |
-| `--model true\|false`   | `false`           | Append a **Model** section — label on line 1, model name + context size on line 2 (e.g. `Opus 4.8 (1M)`). |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
 | `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model` sections show their value (e.g. `main`, `Opus 4.8 (1M)`) in place of the label. |
 
-Unknown flags are ignored, and any section whose data is absent is skipped.
+Unknown flags are ignored, and any section whose data is absent is skipped. The `branch`
+and `model` sections are turned on or off purely by listing (or omitting) them in
+`--sections` — there are no separate `--branch`/`--model` flags.
 
 > [!TIP]
 > **Set [`refreshInterval`](https://code.claude.com/docs/en/statusline) only when using `--time remaining` or `--time elapsed`.** Claude Code re-runs the status line on session activity (a new message, tool call, etc.), so a ticking clock looks frozen while you sit idle. Add `refreshInterval` (seconds) next to `command` to make it advance on its own — `10` is a good balance for the minute-level clock:
@@ -136,16 +139,17 @@ Unknown flags are ignored, and any section whose data is absent is skipped.
 
 ### Branch section
 
-On by default (`--branch true`), a section shows the active **git branch** — the `Branch` label on line 1
+In the default section list, a section shows the active **git branch** — the `Branch` label on line 1
 and the branch name on line 2 (in blue). The branch is read from the workspace dir
 (`.workspace.current_dir`, falling back to `.cwd`); a detached `HEAD` shows the short commit hash,
-and the section is skipped entirely when the directory isn't a git repo. When both are enabled,
-`branch` sits **before** `model`.
+and the section is skipped entirely when the directory isn't a git repo. Drop it with a
+`--sections` list that omits `branch` (e.g. `--sections context,5hr,week`).
 
 ### Model section
 
-With `--model true`, a fourth section shows the active model — the `Model` label on line 1 and
-the name on line 2, colored in tiers: family (Claude orange), version (dim white), context (dim gray).
+Add `model` to `--sections` (e.g. `--sections context,5hr,week,branch,model`) to show the active model —
+the `Model` label on line 1 and the name on line 2, colored in tiers: family (Claude orange),
+version (dim white), context (dim gray). Sections render in the order you list them.
 
 ![status line with the model section, ending in "Opus 4.8 (1M)"](ss-model.png)
 
@@ -155,26 +159,21 @@ With `--layout compact`, the status line collapses to **one line** — the line-
 `branch`/`model` sections show their value directly (since there's no second line to hold it):
 
 ```
-191k/1000k   19% | 5hr -02:37   12% | Week -6days   7% | main | Opus 4.8 (1M)
+191k/1000k 19% | 5hr -02:37 12% | Week -6days 7% | main | Opus 4.8 (1M)
 ```
 
-The token/5hr/week sections keep their right-aligned, gradient-colored `%`; the `branch` (blue) and
-`model` values fit their own content. Pairs naturally with `--time remaining` or `--time elapsed`.
+Every section fits its own content — without a second line to align pipes to, there's no
+bar-width padding, just a single space before each gradient-colored `%` (and the `branch` (blue)
+and `model` values stand on their own). Pairs naturally with `--time remaining` or `--time elapsed`.
 
 ### Responsive
 
 With `--responsive true` (the default), the script reads the `$COLUMNS` environment variable
 (set by Claude Code to the terminal width) and drops sections from the right — least-important
-first (`model`, then `branch`, `week`, …) — until the line fits. The leftmost section (`tokens`) is always
+first (`model`, then `branch`, `week`, …) — until the line fits. The leftmost section (`context`) is always
 kept. Set `--responsive false` to always render every section even if it wraps.
 
-### Pipe alignment is always preserved
-
-Both lines use the same per-section width and ` | ` separator, so the pipes stay vertically
-aligned under any settings. If a field (e.g. a long model name) overflows
-`--width`, every **non-last** field is clipped to exactly `--width` (so later pipes don't
-shift); only the **last** field is allowed to overflow, since nothing follows it. Widen with
-`--width` if something gets clipped. Note: a multi-column `--glyph` (e.g. an emoji) breaks alignment.
+In the expanded layout both lines share the same per-section `--width` and ` | ` separator, so the pipes stay vertically aligned — a field that overflows `--width` is clipped (only the last field may overflow), and a multi-column `--glyph` breaks this. When `--width` is too narrow to hold a section plus its `%`, the `%` is dropped (the bar underneath still shows the level). For the `5hr`/`Week` sections the label then stays pinned left while the time value (e.g. `-02:35`, `-6days`) right-aligns into the freed space; the context section stays left-aligned. Compact is a single line with nothing to align beneath it, so fields just fit their content.
 
 ## `/sl` slash command (optional)
 
@@ -193,14 +192,14 @@ curl -fsSL https://raw.githubusercontent.com/onury/claude-statusline/main/comman
 Then, in any session:
 
 ```
-/sl compact              switch to the single-line layout
-/sl expanded             back to two lines
-/sl tokens,branch,model  set the sections (comma list)
-/sl model off            toggle a section
-/sl time remaining       change the time mode
-/sl width 18             set the bar/field width
-/sl help                 list all options
-/sl                      show the current config
+/sl compact               switch to the single-line layout
+/sl expanded              back to two lines
+/sl context,branch,model  set the sections (comma list, in order)
+/sl model off             add/remove a section
+/sl time remaining        change the time mode
+/sl width 18              set the bar/field width
+/sl help                  list all options
+/sl                       show the current config
 ```
 
 It edits the `--flag`s on your `statusLine.command`, **changing only what you named and keeping the

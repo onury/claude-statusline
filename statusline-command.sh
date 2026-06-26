@@ -1,14 +1,16 @@
 #!/bin/sh
-# Claude Code status line  —  v1.6.0
+# Claude Code status line  —  v2.0.0
 # https://github.com/onury/claude-statusline
-#   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
+#   Line 1 (dim):  context used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
 #
 # Options (pass in settings.json, e.g.
-#   "command": "sh ~/.claude/statusline-command.sh --width 20 --model true"):
+#   "command": "sh ~/.claude/statusline-command.sh --width 20 --sections context,5hr,week,model"):
 #   --width N           cells per bar / width of each line-1 field   (default 16)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
-#   --sections LIST     comma list / order: tokens,5hr,week,branch,model (default tokens,5hr,week)
+#   --sections LIST     comma list / order, any subset of            (default context,5hr,week,branch)
+#                         context,5hr,week,branch,model  (`tokens` is accepted as an
+#                         alias for `context`). Sections render in the order given.
 #   --time MODE         what the 5hr/week time field shows           (default reset)
 #                         reset      reset point          @23:00   @Jun25
 #                         remaining  time left, ticks down -04:30   -6days
@@ -22,19 +24,18 @@
 #                        refreshInterval; pair with a low one for a faster spin.)
 #   --fill F            brightness 0..1 of filled cells              (default 0.80)
 #   --track F           brightness 0..1 of the unfilled track        (default 0.22)
-#   --branch true|false append a Branch section (git branch, line 2) (default true)
-#   --model true|false  append a Model section (name on line 2)      (default false)
 #   --responsive true|false  drop sections from the right to fit $COLUMNS (default true)
 #   --layout expanded|compact  expanded = two lines w/ bars; compact = single line,
 #                       no bars, branch/model show their value             (default expanded)
-# Pipe alignment is preserved for any settings: every non-last field is rendered to
-# exactly --width columns (overlong text is clipped); only the last field may overflow,
-# which never shifts a pipe.
+# In the expanded layout, pipe alignment is preserved for any settings: every non-last
+# field is rendered to exactly --width columns (overlong text is clipped); only the last
+# field may overflow, which never shifts a pipe.  The compact layout is a single line with
+# no bars to align to, so its fields fit their content (one space before each %, no padding).
 
 # ---- defaults ----
 WIDTH=16
 GLYPH="▘"
-SECTIONS="tokens,5hr,week"
+SECTIONS="context,5hr,week,branch"
 TMODE="reset"         # reset | remaining | elapsed
 TIMEFMT="%H:%M"       # 5hr reset clock (fixed)
 DATEFMT="%b%d"        # weekly reset date, no space so it fits the column (e.g. Jun30)
@@ -42,8 +43,6 @@ FH_LEN=18000          # 5-hour window length, seconds
 WK_LEN=604800         # 7-day window length, seconds
 FILL="0.80"
 TRACK="0.22"
-BRANCH="true"
-MODEL="false"
 RESPONSIVE="true"
 LAYOUT="expanded"     # expanded | compact
 
@@ -56,8 +55,6 @@ while [ $# -gt 0 ]; do
         --time)       TMODE="$2";      shift 2 ;;
         --fill)       FILL="$2";       shift 2 ;;
         --track)      TRACK="$2";      shift 2 ;;
-        --branch)     BRANCH="$2";     shift 2 ;;
-        --model)      MODEL="$2";      shift 2 ;;
         --responsive) RESPONSIVE="$2"; shift 2 ;;
         --layout)     LAYOUT="$2";     shift 2 ;;
         *)            shift ;;         # ignore unknown
@@ -68,14 +65,6 @@ case "$WIDTH" in *[!0-9]*|"") WIDTH=16 ;; esac   # guard: positive integer
 BARW="$WIDTH"
 case "$TMODE" in reset|remaining|elapsed) ;; *) TMODE="reset" ;; esac   # guard
 case "$LAYOUT" in expanded|compact) ;; *) LAYOUT="expanded" ;; esac      # guard
-# --branch / --model append their sections (if not already requested).
-# Branch is appended first so it lands before model when both flags are set.
-if [ "$BRANCH" = "true" ]; then
-    case ",$SECTIONS," in *,branch,*) ;; *) SECTIONS="$SECTIONS,branch" ;; esac
-fi
-if [ "$MODEL" = "true" ]; then
-    case ",$SECTIONS," in *,model,*) ;; *) SECTIONS="$SECTIONS,model" ;; esac
-fi
 
 input=$(cat)
 ESC=$(printf '\033')
@@ -226,7 +215,7 @@ pct_color() {
 avail=""
 for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
     case "$s" in
-        tokens) [ "$ctx_size" -gt 0 ] && avail="$avail tokens" ;;
+        context|tokens) [ "$ctx_size" -gt 0 ] && avail="$avail context" ;;   # `tokens` = legacy alias
         5hr)    avail="$avail 5hr" ;;
         week)   avail="$avail week" ;;
         branch) [ -n "$git_branch" ]  && avail="$avail branch" ;;
@@ -307,24 +296,59 @@ for s in $avail; do
             barseg="${styled}$(printf '%*s' "$(( colw - ${#valtext} ))" '')"
         fi
     else
+        # core = left-pinned label; rt = the time value that can move to the right
+        # when the % is hidden (empty for context and while awaiting).  lp/ls = the
+        # full left block (core + time) used when the % is shown.
         case "$s" in
-            tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
-            5hr)    if [ -z "$fh_pct" ]; then lp="5hr$(awaiting)"; ls="$lp"; pct=""; bp=0
-                    else lp="5hr${fh_t}"; ls="5hr${MID}${fh_t}${MIDOFF}"; pct="${fh_r}%"; bp="$fh_r"; fi ;;
-            week)   if [ -z "$wk_pct" ]; then lp="Week$(awaiting)"; ls="$lp"; pct=""; bp=0
-                    else lp="Week${wk_d}"; ls="Week${MID}${wk_d}${MIDOFF}"; pct="${wk_r}%"; bp="$wk_r"; fi ;;
+            context) core="${tok_used}/${tok_tot}"; cstyled="${MID}${tok_used}${MIDOFF}/${tok_tot}"
+                     rt=""; rstyled=""; lp="$core"; ls="$cstyled"; pct="${tok_pct}%"; bp="$tok_pct" ;;
+            5hr)    if [ -z "$fh_pct" ]; then core="5hr"; cstyled="5hr"; rt=""; rstyled=""
+                        lp="5hr$(awaiting)"; ls="$lp"; pct=""; bp=0
+                    else t="${fh_t# }"; core="5hr"; cstyled="5hr"; rt="$t"; rstyled="${MID}${t}${MIDOFF}"
+                        lp="5hr $t"; ls="5hr${MID} ${t}${MIDOFF}"; pct="${fh_r}%"; bp="$fh_r"; fi ;;
+            week)   if [ -z "$wk_pct" ]; then core="Week"; cstyled="Week"; rt=""; rstyled=""
+                        lp="Week$(awaiting)"; ls="$lp"; pct=""; bp=0
+                    else t="${wk_d# }"; core="Week"; cstyled="Week"; rt="$t"; rstyled="${MID}${t}${MIDOFF}"
+                        lp="Week $t"; ls="Week${MID} ${t}${MIDOFF}"; pct="${wk_r}%"; bp="$wk_r"; fi ;;
         esac
-        pad=$(( BARW - ${#lp} - ${#pct} ))
-        if [ "$last" -eq 1 ]; then
-            [ "$pad" -lt 1 ] && pad=1
-        elif [ "$pad" -lt 1 ]; then
-            clip=$(( BARW - ${#pct} - 1 )); [ "$clip" -lt 0 ] && clip=0
-            lp=$(printf '%.*s' "$clip" "$lp"); ls="$lp"; pad=1
+        if [ "$LAYOUT" = "compact" ]; then
+            # Single line: no bars to align to — one space before the %, none if absent.
+            if [ -n "$pct" ]; then seg="${ls} $(pct_color "$bp")${pct}${MIDOFF}"; else seg="${ls}"; fi
+        else
+            # Expanded.  Hide the % when BARW can't hold the left block + a space + %.
+            hid=0
+            if [ -n "$pct" ] && [ $(( ${#lp} + 1 + ${#pct} )) -gt "$BARW" ]; then pct=""; hid=1; fi
+            if [ -n "$pct" ]; then
+                # % shown: left block on the left, % flush right within BARW.
+                pad=$(( BARW - ${#lp} - ${#pct} ))
+                if [ "$last" -eq 1 ]; then
+                    [ "$pad" -lt 1 ] && pad=1
+                elif [ "$pad" -lt 1 ]; then
+                    clip=$(( BARW - ${#pct} - 1 )); [ "$clip" -lt 0 ] && clip=0
+                    lp=$(printf '%.*s' "$clip" "$lp"); ls="$lp"; pad=1
+                fi
+                seg="${ls}$(printf "%*s" "$pad" "")$(pct_color "$bp")${pct}${MIDOFF}"
+            elif [ "$hid" -eq 1 ] && [ -n "$rt" ]; then
+                # % hidden for room: keep the label left, right-align only the time.
+                pad=$(( BARW - ${#core} - ${#rt} ))
+                if [ "$pad" -lt 1 ]; then
+                    if [ "$last" -eq 1 ]; then pad=1            # overflow ok, keep a gap
+                    else
+                        clip=$(( BARW - ${#core} )); [ "$clip" -lt 0 ] && clip=0
+                        rt=$(printf '%.*s' "$clip" "$rt"); rstyled="$rt"
+                        pad=$(( BARW - ${#core} - ${#rt} )); [ "$pad" -lt 0 ] && pad=0
+                    fi
+                fi
+                seg="${cstyled}$(printf "%*s" "$pad" "")${rstyled}${MIDOFF}"
+            else
+                # Awaiting placeholder, or the context section: left-align the value.
+                pad=$(( BARW - ${#lp} ))
+                if [ "$last" -ne 1 ] && [ "$pad" -lt 0 ]; then lp=$(printf '%.*s' "$BARW" "$lp"); ls="$lp"; fi
+                [ "$pad" -lt 0 ] && pad=0
+                seg="${ls}$(printf "%*s" "$pad" "")"
+            fi
+            barseg="$(bar "$bp")"
         fi
-        spaces=$(printf "%*s" "$pad" "")
-        if [ -n "$pct" ]; then pcol="$(pct_color "$bp")"; else pcol="$BRIGHT"; fi
-        seg="${ls}${spaces}${pcol}${pct}${MIDOFF}"
-        [ "$LAYOUT" = "compact" ] || barseg="$(bar "$bp")"
     fi
 
     if [ -z "$L1" ]; then
