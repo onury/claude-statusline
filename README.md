@@ -86,6 +86,7 @@ Claude Code pipes a JSON object to the script on stdin. This script reads:
 | `.rate_limits.seven_day.used_percentage`  | 7-day window usage % |
 | `.rate_limits.seven_day.resets_at`        | 7-day reset (Unix epoch) |
 | `.model.display_name`                     | model name for the `--model` section |
+| `.workspace.current_dir` (or `.cwd`)      | working dir for the `--branch` section's git lookup |
 
 Terminal width for `--responsive` comes from the `$COLUMNS` environment variable, which
 Claude Code sets before each run (requires Claude Code v2.1.153+).
@@ -107,10 +108,11 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 |------|---------|-------------|
 | `--width N`             | `15`              | Cells per bar / width of each line-1 field. |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
-| `--sections LIST`       | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`, `model`. |
+| `--sections LIST`       | `tokens,5hr,week` | Comma-separated sections to show, in order. Any subset of `tokens`, `5hr`, `week`, `branch`, `model`. |
 | `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun 25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
+| `--branch true\|false`  | `true`            | Append a **Branch** section — label on line 1, the working git branch on line 2 (the short commit hash when detached). On by default; skipped when the workspace isn't a git repo. Set `--branch false` to hide it. |
 | `--model true\|false`   | `false`           | Append a **Model** section — label on line 1, model name + context size on line 2 (e.g. `Opus 4.8 (1M)`). |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
 
@@ -131,6 +133,14 @@ Unknown flags are ignored, and any section whose data is absent is skipped.
 >
 > Note: `resets_at` only refreshes on session activity, so an idle countdown can reach the reset before fresh data arrives. When that happens the field shows an animated `•••` "awaiting" indicator (rather than a stuck `-00:00`) until the next update lands. The dot advances one step **per render** regardless of `refreshInterval` (so no interval can freeze it) — `1` gives a fast spin, the default `10` a gentle one. It only touches a tiny temp file while the indicator is on screen; normal renders write nothing.
 
+### Branch section
+
+On by default (`--branch true`), a section shows the active **git branch** — the `Branch` label on line 1
+and the branch name on line 2 (in blue). The branch is read from the workspace dir
+(`.workspace.current_dir`, falling back to `.cwd`); a detached `HEAD` shows the short commit hash,
+and the section is skipped entirely when the directory isn't a git repo. When both are enabled,
+`branch` sits **before** `model`.
+
 ### Model section
 
 With `--model true`, a fourth section shows the active model — the `Model` label on line 1 and
@@ -142,7 +152,7 @@ the name on line 2, colored in tiers: family (Claude orange), version (dim white
 
 With `--responsive true` (the default), the script reads the `$COLUMNS` environment variable
 (set by Claude Code to the terminal width) and drops sections from the right — least-important
-first (`model`, then `week`, …) — until the line fits. The leftmost section (`tokens`) is always
+first (`model`, then `branch`, `week`, …) — until the line fits. The leftmost section (`tokens`) is always
 kept. Set `--responsive false` to always render every section even if it wraps.
 
 ### Pipe alignment is always preserved

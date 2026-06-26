@@ -1,14 +1,14 @@
 #!/bin/sh
-# Claude Code status line  —  v1.3.0
+# Claude Code status line  —  v1.4.0
 # https://github.com/onury/claude-statusline
-#   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Model ]
-#   Line 2:        per-cell green->red progress bar under each segment   [ | model name ]
+#   Line 1 (dim):  tokens used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
+#   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
 #
 # Options (pass in settings.json, e.g.
 #   "command": "sh ~/.claude/statusline-command.sh --width 20 --model true"):
 #   --width N           cells per bar / width of each line-1 field   (default 15)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
-#   --sections LIST     comma list / order: tokens,5hr,week,model    (default tokens,5hr,week)
+#   --sections LIST     comma list / order: tokens,5hr,week,branch,model (default tokens,5hr,week)
 #   --time MODE         what the 5hr/week time field shows           (default reset)
 #                         reset      reset point          @23:00   @Jun 25
 #                         remaining  time left, ticks down -04:30   -6days
@@ -22,6 +22,7 @@
 #                        refreshInterval; pair with a low one for a faster spin.)
 #   --fill F            brightness 0..1 of filled cells              (default 0.80)
 #   --track F           brightness 0..1 of the unfilled track        (default 0.22)
+#   --branch true|false append a Branch section (git branch, line 2) (default true)
 #   --model true|false  append a Model section (name on line 2)      (default false)
 #   --responsive true|false  drop sections from the right to fit $COLUMNS (default true)
 # Pipe alignment is preserved for any settings: every non-last field is rendered to
@@ -39,6 +40,7 @@ FH_LEN=18000          # 5-hour window length, seconds
 WK_LEN=604800         # 7-day window length, seconds
 FILL="0.80"
 TRACK="0.22"
+BRANCH="true"
 MODEL="false"
 RESPONSIVE="true"
 
@@ -51,6 +53,7 @@ while [ $# -gt 0 ]; do
         --time)       TMODE="$2";      shift 2 ;;
         --fill)       FILL="$2";       shift 2 ;;
         --track)      TRACK="$2";      shift 2 ;;
+        --branch)     BRANCH="$2";     shift 2 ;;
         --model)      MODEL="$2";      shift 2 ;;
         --responsive) RESPONSIVE="$2"; shift 2 ;;
         *)            shift ;;         # ignore unknown
@@ -60,7 +63,11 @@ case "$WIDTH" in *[!0-9]*|"") WIDTH=15 ;; esac   # guard: positive integer
 [ "$WIDTH" -lt 1 ] && WIDTH=1
 BARW="$WIDTH"
 case "$TMODE" in reset|remaining|elapsed) ;; *) TMODE="reset" ;; esac   # guard
-# --model true appends the model section (if not already requested).
+# --branch / --model append their sections (if not already requested).
+# Branch is appended first so it lands before model when both flags are set.
+if [ "$BRANCH" = "true" ]; then
+    case ",$SECTIONS," in *,branch,*) ;; *) SECTIONS="$SECTIONS,branch" ;; esac
+fi
 if [ "$MODEL" = "true" ]; then
     case ",$SECTIONS," in *,model,*) ;; *) SECTIONS="$SECTIONS,model" ;; esac
 fi
@@ -89,6 +96,13 @@ wk_reset=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // emp
 # ---- model ----
 model_name=$(printf '%s' "$input" | jq -r '.model.display_name // empty')
 
+# ---- git branch (of the active workspace dir; empty when not a repo) ----
+work_dir=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // empty')
+[ -z "$work_dir" ] && work_dir="."
+git_branch=$(git -C "$work_dir" rev-parse --abbrev-ref HEAD 2>/dev/null)
+# Detached HEAD reports "HEAD" — fall back to the short commit hash.
+[ "$git_branch" = "HEAD" ] && git_branch=$(git -C "$work_dir" rev-parse --short HEAD 2>/dev/null)
+
 DIM="${ESC}[2m"
 RST="${ESC}[0m"
 SEP="${DIM} | ${RST}"
@@ -99,6 +113,7 @@ MIDOFF="${ESC}[39m${REDIM}"                 # restore default color + faint
 MC_NAME="${ESC}[38;2;190;105;77m"   # model family — Claude orange, a little dim
 MC_VER="${ESC}[38;2;205;205;205m"   # version — dimmed white
 MC_CTX="${ESC}[38;2;135;135;135m"   # (context) — dimmed gray
+MC_BRANCH="${ESC}[38;2;97;160;235m"   # git branch — blue
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -194,6 +209,7 @@ for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
         tokens) [ "$ctx_size" -gt 0 ] && avail="$avail tokens" ;;
         5hr)    avail="$avail 5hr" ;;
         week)   avail="$avail week" ;;
+        branch) [ -n "$git_branch" ]  && avail="$avail branch" ;;
         model)  [ -n "$model_name" ]  && avail="$avail model" ;;
     esac
 done
@@ -251,18 +267,19 @@ for s in $avail; do
     [ "$idx" -gt "$keep" ] && break
     last=0; [ "$idx" -eq "$keep" ] && last=1
 
-    if [ "$s" = "model" ]; then
-        # Label on line 1; colored model name on line 2 (no % / no bar).
-        if [ "$last" -eq 1 ]; then
-            seg="Model"; barseg=$(style_model "$model_text")
+    if [ "$s" = "model" ] || [ "$s" = "branch" ]; then
+        # Label on line 1; colored value on line 2 (no % / no bar).
+        # These columns fit their content: width is the longer of label/value,
+        # never padded out to the bar width.  Only the shorter of the two lines
+        # gets trailing spaces, so the column's pipes still align vertically.
+        if [ "$s" = "model" ]; then
+            label="Model"; valtext="$model_text"; styled=$(style_model "$valtext")
         else
-            seg=$(fit "Model" "$BARW")
-            if [ "${#model_text}" -ge "$BARW" ]; then
-                barseg="${MC_NAME}$(printf '%.*s' "$BARW" "$model_text")${RST}"
-            else
-                barseg="$(style_model "$model_text")$(printf '%*s' "$(( BARW - ${#model_text} ))" '')"
-            fi
+            label="Branch"; valtext="$git_branch"; styled="${MC_BRANCH}${valtext}${RST}"
         fi
+        colw=${#label}; [ "${#valtext}" -gt "$colw" ] && colw=${#valtext}
+        seg=$(printf '%-*s' "$colw" "$label")
+        barseg="${styled}$(printf '%*s' "$(( colw - ${#valtext} ))" '')"
     else
         case "$s" in
             tokens) lp="${tok_used}/${tok_tot}"; ls="${MID}${tok_used}${MIDOFF}/${tok_tot}"; pct="${tok_pct}%"; bp="$tok_pct" ;;
