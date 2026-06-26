@@ -176,6 +176,37 @@ aligned under any settings. If a field (e.g. a long model name) overflows
 shift); only the **last** field is allowed to overflow, since nothing follows it. Widen with
 `--width` if something gets clipped. Note: a multi-column `--glyph` (e.g. an emoji) breaks alignment.
 
+## `/sl` slash command (optional)
+
+A small [custom slash command](https://docs.claude.com/en/docs/claude-code/slash-commands) for
+**changing the status line from inside Claude Code** — no need to hand-edit `settings.json`. Install
+it by copying [`commands/sl.md`](commands/sl.md) into your Claude Code commands dir:
+
+```sh
+mkdir -p ~/.claude/commands
+curl -fsSL https://raw.githubusercontent.com/onury/claude-statusline/main/commands/sl.md \
+  -o ~/.claude/commands/sl.md
+```
+
+<sub>Or, from a clone: `cp commands/sl.md ~/.claude/commands/`. Restart Claude Code to pick it up.</sub>
+
+Then, in any session:
+
+```
+/sl compact              switch to the single-line layout
+/sl expanded             back to two lines
+/sl tokens,branch,model  set the sections (comma list)
+/sl model off            toggle a section
+/sl time remaining       change the time mode
+/sl width 18             set the bar/field width
+/sl help                 list all options
+/sl                      show the current config
+```
+
+It edits the `--flag`s on your `statusLine.command`, **changing only what you named and keeping the
+rest**, then writes it back to `settings.json` — so the change **persists** across sessions (it isn't
+a session-only toggle). The new look applies on the next status line refresh.
+
 ## Testing
 
 Pipe sample JSON through it (strip ANSI to read the layout):
