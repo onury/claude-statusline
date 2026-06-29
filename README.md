@@ -178,16 +178,19 @@ In the expanded layout both lines share the same per-section `--width` and ` | `
 ## `/sl` slash command (optional)
 
 A small [custom slash command](https://docs.claude.com/en/docs/claude-code/slash-commands) for
-**changing the status line from inside Claude Code** — no need to hand-edit `settings.json`. Install
-it by copying [`commands/sl.md`](commands/sl.md) into your Claude Code commands dir:
+**changing the status line from inside Claude Code** — no need to hand-edit `settings.json`. It's two
+files: [`commands/sl.md`](commands/sl.md) (the command) and [`sl-config.sh`](sl-config.sh) (the helper
+it calls). Install both:
 
 ```sh
 mkdir -p ~/.claude/commands
 curl -fsSL https://raw.githubusercontent.com/onury/claude-statusline/main/commands/sl.md \
   -o ~/.claude/commands/sl.md
+curl -fsSL https://raw.githubusercontent.com/onury/claude-statusline/main/sl-config.sh \
+  -o ~/.claude/sl-config.sh
 ```
 
-<sub>Or, from a clone: `cp commands/sl.md ~/.claude/commands/`. Restart Claude Code to pick it up.</sub>
+<sub>Or, from a clone: `cp commands/sl.md ~/.claude/commands/ && cp sl-config.sh ~/.claude/`. Restart Claude Code to pick it up.</sub>
 
 Then, in any session:
 
@@ -205,6 +208,12 @@ Then, in any session:
 It edits the `--flag`s on your `statusLine.command`, **changing only what you named and keeping the
 rest**, then writes it back to `settings.json` — so the change **persists** across sessions (it isn't
 a session-only toggle). The new look applies on the next status line refresh.
+
+The command itself is a one-line wrapper: it just runs the bundled `sl-config.sh`, which does the
+request→flag mapping deterministically in shell. Earlier versions baked the whole mapping into the
+slash-command prompt and let the model work it out on every call; moving it into the script does the
+**same edits for ~10× fewer tokens and near-instantly** — there's no model reasoning to parse the
+request, just one command. (Behavior is identical: same requests, same flags, same in-place write.)
 
 ## Testing
 
