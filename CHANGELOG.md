@@ -1,0 +1,61 @@
+# claude-statusline - Changelog
+
+All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
+
+
+## 2.1.0 (2026-06-29)
+
+### Added
+- **`sl-config.sh`** — a bundled POSIX-sh helper that powers the `/sl` slash command. It maps a request (`compact`/`expanded`, a section comma-list, `model on|off`, `branch on|off`, `time …`, `width N`, `responsive on|off`, a literal `--flag` passthrough, `help`, or empty) to the right `--flag` and edits **only** that flag on your `statusLine.command` in `settings.json`, in place (symlink-safe).
+
+### Changed
+- The **`/sl` command** is now a one-line wrapper that runs `sl-config.sh` and relays its output. Previously the full request→flag mapping was baked into the command prompt and worked out by the model on every call — moving it into the script does the **same edits for ~10× fewer tokens and near-instantly**, with no behavior change.
+- `/sl` now installs **two files** (`commands/sl.md` + `sl-config.sh`).
+
+No change to the status line renderer's output.
+
+
+## 2.0.0 (2026-06-26)
+
+### Removed
+- The **`--branch` and `--model` flags** — sections are now controlled solely by `--sections`, rendered **in the order given**.
+
+### Changed
+- The token section is **renamed to `context`** (`tokens` still works as a legacy alias).
+- **New default:** `--sections context,5hr,week,branch`.
+- **Narrow widths (expanded):** when a section's `%` no longer fits, it's dropped (the bar still shows the level). For `5hr`/`Week` the label stays pinned left and the time value (`-02:35`, `-6days`) right-aligns into the freed space; `context` stays left-aligned.
+- **Compact layout:** no bar-width padding — each field fits its content.
+
+Migrate: `--branch true` → add `branch` to `--sections` (now on by default); `--model true` → add `model` to `--sections`.
+
+
+## 1.6.0 (2026-06-26)
+
+### Added
+- **`/sl` slash command** — an optional Claude Code command for changing the status line **from inside a session**, no hand-editing of `settings.json`. It edits only the flag you name, preserves the rest, and persists the change (symlink-safe).
+
+
+## 1.5.0 (2026-06-26)
+
+### Added
+- **`--layout expanded|compact`** — `compact` collapses the status line to a **single line**: drops the line-2 bars, and the `branch`/`model` sections show their value (e.g. `main`, `Opus 4.8 (1M)`) in place of the label. `expanded` (default) is the usual two-line view.
+- **Colored percentages** — each `%` takes its bar's leading-edge gradient hue (green→red), dimmed a touch so it reads as a value.
+- **Highlighted time values** — the 5hr/week reset time/date (`@21:12`, `@Jun03`) get a medium brightness tier, between the dim label and the bright `%`.
+
+### Changed
+- Default `--width` is now **16** (was 15), and the weekly reset date is space-free (`@Jun03`) so it never clips, even at 100%.
+
+
+## 1.4.0 (2026-06-26)
+
+### Added
+- **`branch` section** — shows the active git branch, placed **before** the model column and colored blue; shows the short commit hash when detached, and is skipped when the workspace isn't a git repo. On by default (`--branch true`).
+
+### Changed
+- The `branch`/`model` columns now **fit their content** instead of padding out to the bar width; the other sections keep their fixed `--width`.
+
+
+## 1.3.0 (2026-06-20)
+
+### Added
+- Initial public release. A drop-in status line for Claude Code: **per-cell green→red gradient bars** for context, 5-hour, and weekly rate limits (brightness shows fill); **`--time reset|remaining|elapsed`** window clocks; **awaiting `•••` placeholders** before the first API response; an optional `model` section; responsive section-dropping to fit the terminal; and always-preserved pipe alignment. Pure `sh` + `jq` + `awk`, 24-bit truecolor (macOS / Linux).

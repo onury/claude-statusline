@@ -227,6 +227,10 @@ echo '{"context_window":{"total_input_tokens":58000,"total_output_tokens":2000,"
 To preview specific values for a screenshot, temporarily hardcode them after the parsing
 block, e.g. `tok_pct=82; fh_pct=37; wk_pct=53`, then remove the override.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE) © Onur Yıldırım
