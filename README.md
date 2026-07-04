@@ -156,12 +156,9 @@ version (dim white), context (dim gray). Sections render in the order you list t
 
 ### Cost section
 
-Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g. `$0.41`); in compact it reads `Cost $0.41` inline. It's **off by default**.
+Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g. `$2.81`); in compact it reads `Cost $2.81` inline. It's **off by default**.
 
-```
-Week -6days 50% | Cost | Branch
-                | $0.41 | main
-```
+![status line with the cost section: a "Cost" column on line 1 and an amber "$2.81" on line 2, sitting between Week and Branch](ss-cost.png)
 
 #### Why this exists — and why it isn't a "usage credits" meter
 
