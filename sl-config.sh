@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-statusline — /sl config helper  —  v1.0.0
+# claude-statusline — /sl config helper  —  v1.1.0
 # https://github.com/onury/claude-statusline
 #
 # Deterministically edits the `--flag`s on your `statusLine.command` in settings.json,
@@ -27,9 +27,10 @@ usage() {
 /sl                       show current config + options
 /sl help                  this list
 /sl compact | expanded    switch layout
-/sl context,branch,model  set sections (comma list: context,5hr,week,branch,model)
+/sl context,branch,model  set sections (comma list: context,5hr,week,cost,branch,model)
 /sl model on|off          add/remove the model section
 /sl branch on|off         add/remove the branch section
+/sl cost on|off           add/remove the cost section (this session's $ spend)
 /sl time reset|remaining|elapsed
 /sl width N               bar / field width
 /sl responsive on|off     drop sections to fit the terminal
@@ -78,8 +79,9 @@ case "$REQ" in
   responsive\ off)         set_flag --responsive false; commit ;;
   sections\ *)             set_flag --sections "${REQ#sections }"; commit ;;
 
-  model\ on|model\ off|branch\ on|branch\ off)
+  model\ on|model\ off|branch\ on|branch\ off|cost\ on|cost\ off|credit\ on|credit\ off)
     _name=${REQ% *}; _state=${REQ#* }
+    [ "$_name" = credit ] && _name=cost   # `credit` is an alias for the cost section
     _secs=$(flag_value --sections); [ -n "$_secs" ] || _secs=$DEFAULT_SECTIONS
     # Rebuild the list without _name (so `off` drops it and `on` re-adds it last).
     _out=""; _present=0; _oifs=$IFS; IFS=,

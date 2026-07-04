@@ -9,7 +9,7 @@ sh ~/.claude/sl-config.sh "$ARGUMENTS"
 ```
 
 `sl-config.sh` owns all the logic: it maps the request (`compact`/`expanded`, a section
-comma-list, `model on|off`, `branch on|off`, `time …`, `width N`, `responsive on|off`,
+comma-list, `model on|off`, `branch on|off`, `cost on|off`, `time …`, `width N`, `responsive on|off`,
 `help`, or empty) to the right `--flag`, edits **only** that flag on `statusLine.command`
 in `~/.claude/settings.json` — preserving every other flag and writing in place so a
 symlinked `settings.json` keeps its link — then prints the new command. Don't reimplement

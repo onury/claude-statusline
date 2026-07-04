@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v2.1.0
+# Claude Code status line  —  v2.2.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  context used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
@@ -9,8 +9,11 @@
 #   --width N           cells per bar / width of each line-1 field   (default 16)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
 #   --sections LIST     comma list / order, any subset of            (default context,5hr,week,branch)
-#                         context,5hr,week,branch,model  (`tokens` is accepted as an
-#                         alias for `context`). Sections render in the order given.
+#                         context,5hr,week,cost,branch,model  (`tokens` aliases `context`,
+#                         `credit` aliases `cost`). Sections render in the order given.
+#                         `cost` shows this session's estimated $ spend (no bar / %) —
+#                         it is the only spend signal Claude Code exposes; there is no
+#                         usage-credit balance in the status line payload.
 #   --time MODE         what the 5hr/week time field shows           (default reset)
 #                         reset      reset point          @23:00   @Jun25
 #                         remaining  time left, ticks down -04:30   -6days
@@ -90,6 +93,10 @@ wk_reset=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.resets_at // emp
 # ---- model ----
 model_name=$(printf '%s' "$input" | jq -r '.model.display_name // empty')
 
+# ---- session cost (USD) — the running spend estimate, the only $ signal Claude Code
+# exposes to the status line (there is no usage-credit balance in the payload) ----
+cost_usd=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty')
+
 # ---- git branch (of the active workspace dir; empty when not a repo) ----
 work_dir=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 [ -z "$work_dir" ] && work_dir="."
@@ -108,6 +115,7 @@ MC_NAME="${ESC}[22m${ESC}[38;2;190;105;77m"   # model family — Claude orange, 
 MC_VER="${ESC}[38;2;205;205;205m"   # version — dimmed white
 MC_CTX="${ESC}[38;2;135;135;135m"   # (context) — dimmed gray
 MC_BRANCH="${ESC}[22m${ESC}[38;2;97;160;235m"   # git branch — blue, normal intensity (resists the dim line)
+MC_COST="${ESC}[22m${ESC}[38;2;205;165;95m"     # session cost — amber/gold, normal intensity (resists the dim line)
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -220,6 +228,7 @@ for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
         week)   avail="$avail week" ;;
         branch) [ -n "$git_branch" ]  && avail="$avail branch" ;;
         model)  [ -n "$model_name" ]  && avail="$avail model" ;;
+        cost|credit) [ -n "$cost_usd" ] && avail="$avail cost" ;;   # `credit` = alias for cost
     esac
 done
 set -- $avail
@@ -268,6 +277,9 @@ if [ -n "$model_name" ]; then
         *) [ "$ctx_size" -gt 0 ] && model_text="$model_text ($(fmtctx "$ctx_size"))" ;;
     esac
 fi
+cost_text=""
+[ -n "$cost_usd" ] && cost_text=$(printf '$%.2f' "$cost_usd" 2>/dev/null)
+[ -z "$cost_text" ] && [ -n "$cost_usd" ] && cost_text="\$$cost_usd"   # fallback if not numeric
 
 # Build line 1 (text) and line 2 (bars / model name), one section at a time.
 L1=""; L2=""; idx=0
@@ -276,20 +288,24 @@ for s in $avail; do
     [ "$idx" -gt "$keep" ] && break
     last=0; [ "$idx" -eq "$keep" ] && last=1
 
-    if [ "$s" = "model" ] || [ "$s" = "branch" ]; then
+    if [ "$s" = "model" ] || [ "$s" = "branch" ] || [ "$s" = "cost" ]; then
         # Label on line 1; colored value on line 2 (no % / no bar).
         # These columns fit their content: width is the longer of label/value,
         # never padded out to the bar width.  Only the shorter of the two lines
         # gets trailing spaces, so the column's pipes still align vertically.
         if [ "$s" = "model" ]; then
             label="Model"; valtext="$model_text"; styled=$(style_model "$valtext")
+        elif [ "$s" = "cost" ]; then
+            label="Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
         else
             label="Branch"; valtext="$git_branch"; styled="${MC_BRANCH}${valtext}${RST}"
         fi
         if [ "$LAYOUT" = "compact" ]; then
-            # Single line: the value itself stands in (no label, no second line).
-            # Re-assert dim after the value's reset so the next separator stays dim.
-            seg="${styled}${DIM}"
+            # Single line: the value itself stands in (no label, no second line) — except
+            # cost keeps its "Cost" label, since a bare "$0.41" reads less clearly than a
+            # branch/model name.  Re-assert dim after the value's reset so the next
+            # separator stays dim.
+            if [ "$s" = "cost" ]; then seg="${label} ${styled}${DIM}"; else seg="${styled}${DIM}"; fi
         else
             colw=${#label}; [ "${#valtext}" -gt "$colw" ] && colw=${#valtext}
             seg=$(printf '%-*s' "$colw" "$label")

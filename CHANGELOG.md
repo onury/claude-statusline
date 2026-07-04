@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
 
+## 2.2.0 (2026-07-04)
+
+### Added
+- **`cost` section** (alias `credit`) — shows this session's estimated spend (`.cost.total_cost_usd`) as a plain `Cost $0.41` amount: the `Cost` label on line 1 and the dollar value on line 2 in amber (in compact, `Cost $0.41` inline). No bar and no `%` — Claude Code exposes no usage-credit balance to the status line, so there's nothing to measure against; this is the closest signal for pay-as-you-go spend once a rate limit is hit. **Off by default.**
+- **`/sl cost on|off`** toggle in `sl-config.sh` (`credit` accepted as an alias).
+
+No change to existing sections' output.
+
+
 ## 2.1.0 (2026-06-29)
 
 ### Added

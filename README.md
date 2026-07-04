@@ -89,6 +89,7 @@ Claude Code pipes a JSON object to the script on stdin. This script reads:
 | `.rate_limits.seven_day.used_percentage`  | 7-day window usage % |
 | `.rate_limits.seven_day.resets_at`        | 7-day reset (Unix epoch) |
 | `.model.display_name`                     | model name for the `model` section |
+| `.cost.total_cost_usd`                    | this session's estimated $ spend for the `cost` section |
 | `.workspace.current_dir` (or `.cwd`)      | working dir for the `branch` section's git lookup |
 
 Terminal width for `--responsive` comes from the `$COLUMNS` environment variable, which
@@ -111,16 +112,16 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 |------|---------|-------------|
 | `--width N`             | `16`              | Cells per bar / width of each line-1 field (expanded layout; compact fits content). |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
-| `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `branch`, `model`. (`tokens` is accepted as a legacy alias for `context`.) |
+| `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `cost`, `branch`, `model`. (`tokens` aliases `context`; `credit` aliases `cost`.) `cost` and `model` are off by default. |
 | `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
-| `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model` sections show their value (e.g. `main`, `Opus 4.8 (1M)`) in place of the label. |
+| `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model`/`cost` sections show their value (e.g. `main`, `Opus 4.8 (1M)`, `Cost $0.41`) in place of the label. |
 
-Unknown flags are ignored, and any section whose data is absent is skipped. The `branch`
-and `model` sections are turned on or off purely by listing (or omitting) them in
-`--sections` — there are no separate `--branch`/`--model` flags.
+Unknown flags are ignored, and any section whose data is absent is skipped. The `branch`,
+`model`, and `cost` sections are turned on or off purely by listing (or omitting) them in
+`--sections` — there are no separate `--branch`/`--model`/`--cost` flags.
 
 > [!TIP]
 > **Set [`refreshInterval`](https://code.claude.com/docs/en/statusline) only when using `--time remaining` or `--time elapsed`.** Claude Code re-runs the status line on session activity (a new message, tool call, etc.), so a ticking clock looks frozen while you sit idle. Add `refreshInterval` (seconds) next to `command` to make it advance on its own — `10` is a good balance for the minute-level clock:
@@ -152,6 +153,19 @@ the `Model` label on line 1 and the name on line 2, colored in tiers: family (Cl
 version (dim white), context (dim gray). Sections render in the order you list them.
 
 ![status line with the model section, ending in "Opus 4.8 (1M)"](ss-model.png)
+
+### Cost section
+
+Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this
+session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g.
+`$0.41`). It's off by default.
+
+> [!NOTE]
+> This is **`.cost.total_cost_usd`** — Claude Code's running cost estimate for the *current session*,
+> which resets each session. It is **not** a usage-credit balance: Claude Code exposes no credit
+> balance or credit-usage figure to the status line, so there's nothing to draw a `%` or bar against.
+> The `cost` section is the closest available signal for what you're spending once a rate limit is hit
+> and pay-as-you-go usage kicks in. It carries no bar and no `%` — just the amount.
 
 ### Compact layout (single line)
 
