@@ -262,8 +262,8 @@ sec_w() {
                 else _w=6; [ "${#git_branch}" -gt "$_w" ] && _w=${#git_branch}; fi ;;   # "Branch"=6
         model)  if [ "$LAYOUT" = compact ]; then _w=${#model_text}
                 else _w=5; [ "${#model_text}" -gt "$_w" ] && _w=${#model_text}; fi ;;   # "Model"=5
-        cost)   if [ "$LAYOUT" = compact ]; then _w=$(( 8 + ${#cost_text} ))            # "S. Cost <value>"
-                else _w=7; [ "${#cost_text}" -gt "$_w" ] && _w=${#cost_text}; fi ;;     # "S. Cost"=7
+        cost)   if [ "$LAYOUT" = compact ]; then _w=$(( 7 + ${#cost_text} ))            # "S.Cost <value>"
+                else _w=6; [ "${#cost_text}" -gt "$_w" ] && _w=${#cost_text}; fi ;;     # "S.Cost"=6
         *)      _w=$BARW ;;
     esac
     printf '%s' "$_w"
@@ -324,7 +324,7 @@ for s in $avail; do
         if [ "$s" = "model" ]; then
             label="Model"; valtext="$model_text"; styled=$(style_model "$valtext")
         elif [ "$s" = "cost" ]; then
-            label="S. Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
+            label="S.Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
         else
             label="Branch"; valtext="$git_branch"; styled="${MC_BRANCH}${valtext}${RST}"
         fi

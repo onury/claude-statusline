@@ -9,13 +9,13 @@ All notable changes to this project will be documented in this file. The format 
 - **`--responsive` no longer drops sections that actually fit.** The width estimate assumed *every* section was `--width` columns wide, but the `branch`/`model`/`cost` columns are sized to their content (often far narrower). On a line with those sections, the estimate ran well over the true width and dropped the rightmost section (e.g. `model`) even with plenty of room to spare. It now sums each section's real display width — bar sections at `--width`, label/value columns at their content width — so sections drop only when the line genuinely overflows.
 
 ### Changed
-- The `cost` section's label is now **`S. Cost`** (session cost) instead of `Cost`, to make explicit that it's this session's spend, not a credit balance.
+- The `cost` section's label is now **`S.Cost`** (session cost) instead of `Cost`, to make explicit that it's this session's spend, not a credit balance.
 
 
 ## 2.2.0 (2026-07-04)
 
 ### Added
-- **`cost` section** (alias `credit`) — shows this session's estimated spend (`.cost.total_cost_usd`) as a plain `S. Cost $0.41` amount: the `S. Cost` label (session cost) on line 1 and the dollar value on line 2 in amber (in compact, `S. Cost $0.41` inline). No bar and no `%` — Claude Code exposes no usage-credit balance to the status line, so there's nothing to measure against; this is the closest signal for pay-as-you-go spend once a rate limit is hit. **Off by default.**
+- **`cost` section** (alias `credit`) — shows this session's estimated spend (`.cost.total_cost_usd`) as a plain `S.Cost $0.41` amount: the `S.Cost` label (session cost) on line 1 and the dollar value on line 2 in amber (in compact, `S.Cost $0.41` inline). No bar and no `%` — Claude Code exposes no usage-credit balance to the status line, so there's nothing to measure against; this is the closest signal for pay-as-you-go spend once a rate limit is hit. **Off by default.**
 - **`/sl cost on|off`** toggle in `sl-config.sh` (`credit` accepted as an alias).
 
 No change to existing sections' output.
