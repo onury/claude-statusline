@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v2.2.1
+# Claude Code status line  —  v2.2.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  context used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
