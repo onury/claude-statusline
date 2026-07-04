@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v2.2.0
+# Claude Code status line  —  v2.2.1
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  context used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
@@ -234,10 +234,51 @@ done
 set -- $avail
 keep=$#
 
-# Responsive: drop sections from the right until the line fits $COLUMNS.
+# Model / cost display text — computed here (before the responsive check) so that
+# check can measure their real width.  The bar sections are exactly --width, but
+# branch/model/cost are sized to their content and must not be over-counted.
+model_text="$model_name"
+if [ -n "$model_name" ]; then
+    # Names may already carry a context label, e.g. "Opus 4.8 (1M context)";
+    # tidy that to "(1M)". Only append a derived size if there's no parenthetical.
+    model_text=$(printf '%s' "$model_name" | sed 's/ context//g')
+    case "$model_text" in
+        *\(*\)*) : ;;
+        *) [ "$ctx_size" -gt 0 ] && model_text="$model_text ($(fmtctx "$ctx_size"))" ;;
+    esac
+fi
+cost_text=""
+[ -n "$cost_usd" ] && cost_text=$(printf '$%.2f' "$cost_usd" 2>/dev/null)
+[ -z "$cost_text" ] && [ -n "$cost_usd" ] && cost_text="\$$cost_usd"   # fallback if not numeric
+
+# Display width of one section.  Bar sections (context/5hr/week) occupy exactly
+# --width; the branch/model/cost columns fit their content — in compact, branch/model
+# show just the value and cost shows "Cost <value>"; in expanded a label/value column
+# is the wider of its label and value.  Counting these as a full bar (the old estimate)
+# over-stated the line and dropped sections that actually fit.
+sec_w() {
+    case "$1" in
+        branch) if [ "$LAYOUT" = compact ]; then _w=${#git_branch}
+                else _w=6; [ "${#git_branch}" -gt "$_w" ] && _w=${#git_branch}; fi ;;   # "Branch"=6
+        model)  if [ "$LAYOUT" = compact ]; then _w=${#model_text}
+                else _w=5; [ "${#model_text}" -gt "$_w" ] && _w=${#model_text}; fi ;;   # "Model"=5
+        cost)   if [ "$LAYOUT" = compact ]; then _w=$(( 8 + ${#cost_text} ))            # "S. Cost <value>"
+                else _w=7; [ "${#cost_text}" -gt "$_w" ] && _w=${#cost_text}; fi ;;     # "S. Cost"=7
+        *)      _w=$BARW ;;
+    esac
+    printf '%s' "$_w"
+}
+
+# Responsive: drop sections from the right until the real line width fits $COLUMNS.
 case "$COLUMNS" in *[!0-9]*|"") cols=0 ;; *) cols="$COLUMNS" ;; esac
 if [ "$RESPONSIVE" = "true" ] && [ "$cols" -gt 0 ]; then
-    while [ "$keep" -gt 1 ] && [ $(( keep * BARW + 3 * (keep - 1) )) -gt "$cols" ]; do
+    while [ "$keep" -gt 1 ]; do
+        sum=$(( 3 * (keep - 1) )); n=0        # 3 columns per " | " separator
+        for w in $avail; do
+            n=$(( n + 1 )); [ "$n" -gt "$keep" ] && break
+            sum=$(( sum + $(sec_w "$w") ))
+        done
+        [ "$sum" -le "$cols" ] && break
         keep=$(( keep - 1 ))
     done
 fi
@@ -267,19 +308,6 @@ wk_d=""; [ -n "$wk_reset" ] && wk_d=$(wk_field "$wk_reset" "$NOW")
 [ -n "$fh_pct" ] && fh_r=$(printf "%.0f" "$fh_pct")
 [ -n "$wk_pct" ] && wk_r=$(printf "%.0f" "$wk_pct")
 if [ "$ctx_size" -gt 0 ]; then tok_used=$(fmtk "$total"); tok_tot=$(fmtk "$ctx_size"); fi
-model_text="$model_name"
-if [ -n "$model_name" ]; then
-    # Names may already carry a context label, e.g. "Opus 4.8 (1M context)";
-    # tidy that to "(1M)". Only append a derived size if there's no parenthetical.
-    model_text=$(printf '%s' "$model_name" | sed 's/ context//g')
-    case "$model_text" in
-        *\(*\)*) : ;;
-        *) [ "$ctx_size" -gt 0 ] && model_text="$model_text ($(fmtctx "$ctx_size"))" ;;
-    esac
-fi
-cost_text=""
-[ -n "$cost_usd" ] && cost_text=$(printf '$%.2f' "$cost_usd" 2>/dev/null)
-[ -z "$cost_text" ] && [ -n "$cost_usd" ] && cost_text="\$$cost_usd"   # fallback if not numeric
 
 # Build line 1 (text) and line 2 (bars / model name), one section at a time.
 L1=""; L2=""; idx=0
@@ -296,7 +324,7 @@ for s in $avail; do
         if [ "$s" = "model" ]; then
             label="Model"; valtext="$model_text"; styled=$(style_model "$valtext")
         elif [ "$s" = "cost" ]; then
-            label="Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
+            label="S. Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
         else
             label="Branch"; valtext="$git_branch"; styled="${MC_BRANCH}${valtext}${RST}"
         fi

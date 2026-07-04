@@ -117,7 +117,7 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
-| `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model`/`cost` sections show their value (e.g. `main`, `Opus 4.8 (1M)`, `Cost $0.41`) in place of the label. |
+| `--layout expanded\|compact` | `expanded`   | `expanded` — the default two-line view (text + bars). `compact` — a **single line**: drops the line-2 bars and the `branch`/`model`/`cost` sections show their value (e.g. `main`, `Opus 4.8 (1M)`, `S. Cost $0.41`) in place of the label. |
 
 Unknown flags are ignored, and any section whose data is absent is skipped. The `branch`,
 `model`, and `cost` sections are turned on or off purely by listing (or omitting) them in
@@ -156,9 +156,9 @@ version (dim white), context (dim gray). Sections render in the order you list t
 
 ### Cost section
 
-Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g. `$2.81`); in compact it reads `Cost $2.81` inline. It's **off by default**.
+Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this session's estimated spend — the `S. Cost` label (session cost) on line 1 and the dollar amount on line 2 (in amber, e.g. `$2.81`); in compact it reads `S. Cost $2.81` inline. It's **off by default**.
 
-![status line with the cost section: a "Cost" column on line 1 and an amber "$2.81" on line 2, sitting between Week and Branch](ss-cost.png)
+![status line with the cost section: an "S. Cost" column on line 1 and an amber "$2.81" on line 2, sitting between Week and Branch](ss-cost.png)
 
 #### Why this exists — and why it isn't a "usage credits" meter
 
