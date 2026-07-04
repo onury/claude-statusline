@@ -156,16 +156,23 @@ version (dim white), context (dim gray). Sections render in the order you list t
 
 ### Cost section
 
-Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this
-session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g.
-`$0.41`). It's off by default.
+Add `cost` (or its alias `credit`) to `--sections` (e.g. `--sections context,5hr,week,cost`) to show this session's estimated spend — the `Cost` label on line 1 and the dollar amount on line 2 (in amber, e.g. `$0.41`); in compact it reads `Cost $0.41` inline. It's **off by default**.
 
-> [!NOTE]
-> This is **`.cost.total_cost_usd`** — Claude Code's running cost estimate for the *current session*,
-> which resets each session. It is **not** a usage-credit balance: Claude Code exposes no credit
-> balance or credit-usage figure to the status line, so there's nothing to draw a `%` or bar against.
-> The `cost` section is the closest available signal for what you're spending once a rate limit is hit
-> and pay-as-you-go usage kicks in. It carries no bar and no `%` — just the amount.
+```
+Week -6days 50% | Cost | Branch
+                | $0.41 | main
+```
+
+#### Why this exists — and why it isn't a "usage credits" meter
+
+The original goal behind this section was to **monitor usage credits** — the pay-as-you-go balance that takes over once your 5-hour or weekly limit is exhausted, so you could watch it drain the same way the `5hr`/`Week` bars fill. That turns out not to be possible yet: **Claude Code does not expose any usage-credit information to the status line.** The JSON it pipes to the status line command carries the rate-limit windows (`rate_limits.five_hour`, `rate_limits.seven_day`) and a session cost estimate, but **no credit balance, no credit-used amount, and no credit percentage** — not even when a limit is at 100% and the session is running on credits. There is simply nothing to read, so there's nothing to draw a `%` or a green→red bar against. (Credits currently surface only through the `/usage` command, not the status line payload.)
+
+What *is* available is **`.cost.total_cost_usd`** — Claude Code's running cost estimate for the **current session**. So the `cost` section shows that instead: it's the closest available proxy for "what am I spending now that I've blown past a limit and pay-as-you-go has kicked in." Two things to keep in mind:
+
+- It's **session-scoped** — it counts only the active session and resets to `$0.00` when a new one starts. It is *not* a cumulative total of credits burned across your billing period or across the rate-limit window.
+- It's an **estimate**, and it's a *cost* figure, not a *credit* figure — a dollar amount of spend, not a balance remaining. That's why it carries **no bar and no `%`**: with no cap or balance to measure against, a bar would be inventing a denominator. It's just the number.
+
+If Claude Code later adds real usage-credit data to the status line payload, this section is the natural place to grow a proper balance/percentage bar. Until then, `cost` is the honest, available signal — the one field it reads (`.cost.total_cost_usd`) is listed in [Status line JSON fields used](#status-line-json-fields-used) above.
 
 ### Compact layout (single line)
 
