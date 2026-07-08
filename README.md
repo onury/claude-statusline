@@ -175,6 +175,8 @@ If Claude Code later adds real usage-credit data to the status line payload, thi
 
 Even without a credit balance, the section earns its keep exactly in the scenario it was built for. When you've exhausted your 5-hour or weekly limit and topped up with usage credits, **start a fresh session and turn `cost` on** (`/sl cost on`). Because the figure is session-scoped it begins at `$0.00`, so from that point it's a clean live meter of what the session is spending against those credits — it climbs on every status line refresh as you work. Keep the two caveats above in mind: it's an *estimate*, and it measures **spend since this session started**, not credits *remaining* — but as a real-time read on "how fast am I burning through my top-up," it's the most direct signal you've got.
 
+Because each session's figure is independent and resets to `$0.00`, running **several sessions in parallel gives you several separate meters, not one running total** — to know your overall spend against the top-up, read the `S.Cost` from each open session and **add them up yourself**. There's no cross-session tally in the status line; it only ever reflects the session it's drawn in.
+
 ### Compact layout (single line)
 
 With `--layout compact`, the status line collapses to **one line** — the line-2 bars are dropped, and the
