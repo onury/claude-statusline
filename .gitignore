@@ -17,3 +17,6 @@ Thumbs.db
 
 /_promote/
 /backup/
+
+# Scratch / temp — never committed
+_backup/
