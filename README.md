@@ -160,7 +160,9 @@ The model section names the model, and nothing else. Earlier versions appended t
 
 Add `effort` to `--sections` (e.g. `--sections context,5hr,week,branch,model,effort`) to show the reasoning effort the session is running at — the `Effort` label on line 1 and the level on line 2. It's **off by default**, and it sits next to `model` in the list above because that is where it reads best; sections render in whatever order you give them.
 
-Effort changes both how hard the model thinks and what the turn costs, and Claude Code shows it nowhere else. The levels match the ones `/effort` offers — `low`, `medium`, `high` (the default), `xhigh`, `max`, `ultracode`, `auto`. The graded ones run cool to hot, so the setting reads at a glance without being read; `auto` sits outside that ramp in green, because it is not a depth but Claude choosing the depth per turn. `xhigh` renders as **Extra**, the name Claude's own picker uses (both spellings are accepted):
+Effort changes both how hard the model thinks and what the turn costs, and Claude Code shows it nowhere else. The levels match the ones `/effort` offers. The graded ones run cool to hot, so the setting reads at a glance without being read; `auto` sits outside that ramp in green, because it is not a depth but Claude choosing the depth per turn. `xhigh` renders as **Extra**, the name Claude's own picker uses:
+
+_Note: `/effort ultracode` does not appear here, and cannot. It is not a level — it sets the effort to `xhigh` and adds dynamic workflow orchestration — and the status-line payload carries no trace of it: with ultracode active the payload still reads `{"level": "xhigh"}`. The section shows `Extra`, which is what the effort actually is._
 
 | Level | Color |
 |---|---|
@@ -168,8 +170,7 @@ Effort changes both how hard the model thinks and what the turn costs, and Claud
 | `Medium` | yellow-ish orange |
 | `High` | Claude orange |
 | `Extra` | reddish orange, between the two either side |
-| `Max` | red (`#BE170C`) |
-| `Ultracode` | pure red (`#FF0000`) — hotter than `Max` |
+| `Max` | red (`#BE170C`) — the ceiling |
 | `Auto` | green (`#1BAF54`) — off the ramp: Claude picks the depth per turn |
 
 A level this version has never seen is shown uncolored rather than dropped: Anthropic can add one at any time.

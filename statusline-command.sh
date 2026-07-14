@@ -129,10 +129,14 @@ EC_LOW="${ESC}[22m${ESC}[38;2;198;190;140m"     # low    — white-ish yellow, s
 EC_MED="${ESC}[22m${ESC}[38;2;230;170;80m"      # medium — yellow-ish orange
 EC_HIGH="${ESC}[22m${ESC}[38;2;217;119;87m"     # high   — Claude orange
 EC_EXTRA="${ESC}[22m${ESC}[38;2;203;71;49m"     # extra  — reddish orange, midway between the two below/above
-EC_MAX="${ESC}[22m${ESC}[38;2;190;23;12m"       # max    — red (#BE170C)
-EC_ULTRA="${ESC}[22m${ESC}[38;2;255;0;0m"       # ultracode — pure red (#FF0000): hotter than max
+EC_MAX="${ESC}[22m${ESC}[38;2;190;23;12m"       # max    — red (#BE170C): the ceiling
 EC_AUTO="${ESC}[22m${ESC}[38;2;27;175;84m"      # auto   — green (#1BAF54). Off the ramp on purpose:
                                                 # it is not a depth, it is Claude choosing the depth.
+# `/effort ultracode` is NOT a level. It sets the effort to `xhigh` and adds dynamic
+# workflow orchestration on top, and the status-line payload carries no trace of it:
+# with ultracode active the payload still reads {"level": "xhigh"} and every other
+# field is unchanged. So the section shows Extra — which is the truth — and the mode
+# itself is simply not visible from here. Verified against a live payload, 2026-07-14.
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -273,7 +277,6 @@ case "$effort_level" in
     # and show the name the user sees in the app.
     xhigh|extra) effort_text="Extra"; EC="$EC_EXTRA" ;;
     max)    effort_text="Max";    EC="$EC_MAX" ;;
-    ultracode) effort_text="Ultracode"; EC="$EC_ULTRA" ;;
     # `auto` is not a rung on the ladder — Claude picks the depth per turn — so it is
     # colored apart from the cool-to-hot ramp rather than at one end of it.
     auto)   effort_text="Auto";   EC="$EC_AUTO" ;;
