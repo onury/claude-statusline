@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-statusline — /sl config helper  —  v1.1.0
+# claude-statusline — /sl config helper  —  v1.1.1
 # https://github.com/onury/claude-statusline
 #
 # Deterministically edits the `--flag`s on your `statusLine.command` in settings.json,
@@ -14,13 +14,21 @@
 #   sh ~/.claude/sl-config.sh width 18              # bar / field width
 #   sh ~/.claude/sl-config.sh responsive on         # on|off
 #
-# Requires jq. Honors $CLAUDE_CONFIG_DIR (defaults to ~/.claude).
+# Requires jq. Honors $CLAUDE_CONFIG_DIR (defaults to ~/.claude). If a capture wrapper
+# holds `statusLine.command`, edits the command it wraps, where that actually lives.
 
 set -eu
 
 SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
 BASE="sh ~/.claude/statusline-command.sh"
 DEFAULT_SECTIONS="context,5hr,week,branch"
+
+# Where the command we edit actually lives. Normally that is settings.json's
+# `statusLine.command`. But a capture wrapper — Claude Watch installs one — takes
+# over that key and re-runs your real command from a file of its own, so editing
+# settings.json would edit the wrapper, which ignores flags entirely: the change
+# would look accepted and do nothing. When we see a wrapper, we edit its file.
+INNER=""
 
 usage() {
   cat <<'EOF'
@@ -41,6 +49,18 @@ command -v jq >/dev/null 2>&1 || { echo "sl-config: jq is required" >&2; exit 1;
 
 # Current command, falling back to the default invocation if none is set yet.
 CMD=$(jq -r '.statusLine.command // empty' "$SETTINGS" 2>/dev/null || true)
+
+# A capture wrapper in that slot means the real command is one level down. Take the
+# wrapper's own directory from its path, so a non-default config dir still resolves.
+case "$CMD" in
+  *claude-watch-statusline.sh*)
+    _dir=$(printf '%s\n' "$CMD" | sed -n "s|.*[ '\"]\\(/.*/\\)claude-watch-statusline\\.sh.*|\\1|p")
+    [ -n "$_dir" ] || _dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/claude-watch/"
+    INNER="${_dir}inner.txt"
+    CMD=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$INNER" 2>/dev/null || true)
+    ;;
+esac
+
 [ -n "$CMD" ] || CMD="$BASE"
 
 # Value of a --flag in CMD (space form); empty if the flag is absent.
@@ -58,11 +78,17 @@ set_flag() {
   fi
 }
 
-# Write CMD back in place (preserving a symlinked settings.json) and print it.
+# Write CMD back where it is actually read from, and print it. Behind a capture
+# wrapper that is the wrapper's inner file; otherwise settings.json, rewritten in
+# place so a symlinked settings.json stays a symlink.
 commit() {
-  [ -f "$SETTINGS" ] || { echo "sl-config: no settings.json at $SETTINGS" >&2; exit 1; }
-  _new=$(jq --arg c "$CMD" '.statusLine.command = $c' "$SETTINGS")
-  printf '%s\n' "$_new" > "$SETTINGS"
+  if [ -n "$INNER" ]; then
+    printf '%s\n' "$CMD" > "$INNER"
+  else
+    [ -f "$SETTINGS" ] || { echo "sl-config: no settings.json at $SETTINGS" >&2; exit 1; }
+    _new=$(jq --arg c "$CMD" '.statusLine.command = $c' "$SETTINGS")
+    printf '%s\n' "$_new" > "$SETTINGS"
+  fi
   printf '%s\n' "$CMD"
 }
 

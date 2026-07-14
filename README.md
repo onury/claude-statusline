@@ -254,6 +254,8 @@ It edits the `--flag`s on your `statusLine.command`, **changing only what you na
 rest**, then writes it back to `settings.json` — so the change **persists** across sessions (it isn't
 a session-only toggle). The new look applies on the next status line refresh.
 
+**If something has wrapped your status line, `/sl` follows it.** A capture wrapper — [Claude Watch](https://github.com/onury/claude-watch) installs one — takes over `statusLine.command` and re-runs your real command from a file of its own. `/sl` detects that, and reads and writes the wrapped command where it actually lives (`~/.claude/claude-watch/inner.txt`) instead of editing the wrapper, which ignores flags. Without this, an edit looks accepted and then does nothing.
+
 The command itself is a one-line wrapper: it just runs the bundled `sl-config.sh`, which does the
 request→flag mapping deterministically in shell. Earlier versions baked the whole mapping into the
 slash-command prompt and let the model work it out on every call; moving it into the script does the

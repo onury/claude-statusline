@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
 
+## 2.3.1 (2026-07-14)
+
+### Fixed
+- **`/sl` now edits the command that actually renders when something has wrapped your status line.** A capture wrapper — [Claude Watch](https://github.com/onury/claude-watch) installs one — takes over `settings.json`'s `statusLine.command` and re-runs your real command from a file of its own (`~/.claude/claude-watch/inner.txt`). `sl-config.sh` read and wrote `statusLine.command` unconditionally, so behind such a wrapper it was editing the wrapper — which ignores flags entirely. Every `/sl` change was accepted, printed back, and silently inert. Reads were wrong for the same reason: the wrapper carries no flags, so `/sl` reported defaults that had nothing to do with what was on screen. It now detects the wrapper, resolves its directory from the command itself (so a non-default `$CLAUDE_CONFIG_DIR` still resolves), and reads and writes the wrapped command where it lives. With no wrapper installed, nothing changes.
+
 ## 2.3.0 (2026-07-14)
 
 ### Added
