@@ -10,7 +10,7 @@ Never get blindsided by a rate limit again. This drop-in status line keeps your
 context-window, 5-hour, and weekly usage — and how close each is to its cap — visible at
 the bottom of every [Claude Code](https://code.claude.com) prompt.
 
-![claude-statusline: animated context-window, 5-hour and weekly bars filling green→red, with the branch and model sections](demo.gif)
+![claude-statusline: animated context-window, 5-hour and weekly bars filling green→red, with the branch, model and effort sections](demo.gif)
 
 - **Line 1** — sections separated by ` | ` (default `context,5hr,week,branch`):
   - `used/total` context tokens + context-window `%`
