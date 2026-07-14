@@ -27,7 +27,7 @@ usage() {
 /sl                       show current config + options
 /sl help                  this list
 /sl compact | expanded    switch layout
-/sl context,branch,model  set sections (comma list: context,5hr,week,cost,branch,model)
+/sl context,branch,model  set sections (comma list: context,5hr,week,cost,branch,model,effort)
 /sl model on|off          add/remove the model section
 /sl branch on|off         add/remove the branch section
 /sl cost on|off           add/remove the cost section (this session's $ spend)

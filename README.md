@@ -112,7 +112,7 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 |------|---------|-------------|
 | `--width N`             | `16`              | Cells per bar / width of each line-1 field (expanded layout; compact fits content). |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
-| `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `cost`, `branch`, `model`. (`tokens` aliases `context`; `credit` aliases `cost`.) `cost` and `model` are off by default. |
+| `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `cost`, `branch`, `model`, `effort`. (`tokens` aliases `context`; `credit` aliases `cost`.) `cost` and `model` are off by default. |
 | `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
@@ -150,9 +150,27 @@ and the section is skipped entirely when the directory isn't a git repo. Drop it
 
 Add `model` to `--sections` (e.g. `--sections context,5hr,week,branch,model`) to show the active model —
 the `Model` label on line 1 and the name on line 2, colored in tiers: family (Claude orange),
-version (dim white), context (dim gray). Sections render in the order you list them.
+version (dim white). Sections render in the order you list them.
 
-![status line with the model section, ending in "Opus 4.8 (1M)"](ss-model.png)
+The model section names the model, and nothing else. Earlier versions appended the context window to it — `Opus 4.8 (1M)` — which was misleading: **the window is not a property of the model.** Nearly every current model can run at 1M, whether a session actually does is a runtime setting of that session, and the size the status line prints comes from `.context_window.context_window_size` in the payload, not from the model's name. The `context` section already shows it, as the denominator (`797k/1000k`).
+
+![status line with the model section](ss-model.png)
+
+### Effort section
+
+Add `effort` to `--sections` (e.g. `--sections context,5hr,week,branch,model,effort`) to show the reasoning effort the session is running at — the `Effort` label on line 1 and the level on line 2. It's **off by default**, and it sits next to `model` in the list above because that is where it reads best; sections render in whatever order you give them.
+
+Effort changes both how hard the model thinks and what the turn costs, and Claude Code shows it nowhere else. The levels run cool to hot, so the setting reads at a glance without being read:
+
+| Level | Color |
+|---|---|
+| `Low` | white-ish yellow, held back a little |
+| `Medium` | yellow-ish orange |
+| `High` | Claude orange |
+| `XHigh` | hotter still |
+| `Max` | red — the ceiling |
+
+A level this version has never seen is shown uncolored rather than dropped: Anthropic can add one at any time.
 
 ### Cost section
 
@@ -183,7 +201,7 @@ With `--layout compact`, the status line collapses to **one line** — the line-
 `branch`/`model` sections show their value directly (since there's no second line to hold it):
 
 ```
-191k/1000k 19% | 5hr -02:37 12% | Week -6days 7% | main | Opus 4.8 (1M)
+191k/1000k 19% | 5hr -02:37 12% | Week -6days 7% | main | Opus 4.8
 ```
 
 Every section fits its own content — without a second line to align pipes to, there's no

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Claude Code status line  —  v2.2.0
+# Claude Code status line  —  v2.3.0
 # https://github.com/onury/claude-statusline
 #   Line 1 (dim):  context used/total %  |  5hr % reset  |  week % reset  [ | Branch | Model ]
 #   Line 2:        per-cell green->red progress bar under each segment   [ | branch | model name ]
@@ -9,7 +9,8 @@
 #   --width N           cells per bar / width of each line-1 field   (default 16)
 #   --glyph CHAR        single-column bar cell character             (default ▘)
 #   --sections LIST     comma list / order, any subset of            (default context,5hr,week,branch)
-#                         context,5hr,week,cost,branch,model  (`tokens` aliases `context`,
+#                         context,5hr,week,cost,branch,model,effort  (`tokens` aliases
+#                         `context`,
 #                         `credit` aliases `cost`). Sections render in the order given.
 #                         `cost` shows this session's estimated $ spend (no bar / %) —
 #                         it is the only spend signal Claude Code exposes; there is no
@@ -97,6 +98,11 @@ model_name=$(printf '%s' "$input" | jq -r '.model.display_name // empty')
 # exposes to the status line (there is no usage-credit balance in the payload) ----
 cost_usd=$(printf '%s' "$input" | jq -r '.cost.total_cost_usd // empty')
 
+# ---- effort (reasoning depth: low | medium | high | xhigh | max) ----
+# Claude Code sends it on every render, and it appears nowhere else in the TUI —
+# it changes both how hard the model thinks and what the turn costs.
+effort_level=$(printf '%s' "$input" | jq -r '.effort.level // empty')
+
 # ---- git branch (of the active workspace dir; empty when not a repo) ----
 work_dir=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // empty')
 [ -z "$work_dir" ] && work_dir="."
@@ -116,6 +122,14 @@ MC_VER="${ESC}[38;2;205;205;205m"   # version — dimmed white
 MC_CTX="${ESC}[38;2;135;135;135m"   # (context) — dimmed gray
 MC_BRANCH="${ESC}[22m${ESC}[38;2;97;160;235m"   # git branch — blue, normal intensity (resists the dim line)
 MC_COST="${ESC}[22m${ESC}[38;2;205;165;95m"     # session cost — amber/gold, normal intensity (resists the dim line)
+# Effort — the ramp runs cool to hot as the model is told to think harder, so the
+# level reads at a glance without being read.  All five are normal-intensity so they
+# resist the dim line; only `low` is held back a little, since it is the quiet one.
+EC_LOW="${ESC}[22m${ESC}[38;2;198;190;140m"     # low    — white-ish yellow, slightly held back
+EC_MED="${ESC}[22m${ESC}[38;2;230;170;80m"      # medium — yellow-ish orange
+EC_HIGH="${ESC}[22m${ESC}[38;2;217;119;87m"     # high   — Claude orange
+EC_XHIGH="${ESC}[22m${ESC}[38;2;224;96;64m"     # xhigh  — hotter still
+EC_MAX="${ESC}[22m${ESC}[38;2;220;62;52m"       # max    — red: the ceiling
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -176,13 +190,12 @@ wk_field() {
 fit() {
     if [ "${#1}" -gt "$2" ]; then printf '%.*s' "$2" "$1"; else printf '%-*s' "$2" "$1"; fi
 }
-# Color a model string "Name Ver (Ctx)": orange family, dim-white version, dim-gray context.
+# Color a model string "Name Ver": orange family, dim-white version.
 style_model() {
-    mt="$1"; ctxp=""; rest="$mt"
-    case "$mt" in *\ \(*\)) ctxp=" ${mt##* }"; rest="${mt% *}" ;; esac
+    rest="$1"
     nm="${rest%% *}"; vr=""
     case "$rest" in *" "*) vr=" ${rest#* }" ;; esac
-    printf '%s%s%s%s%s%s%s' "$MC_NAME" "$nm" "$MC_VER" "$vr" "$MC_CTX" "$ctxp" "$RST"
+    printf '%s%s%s%s%s' "$MC_NAME" "$nm" "$MC_VER" "$vr" "$RST"
 }
 
 # Render a BARW-cell bar; each cell owns a green(0%)->red(100%) gradient color.
@@ -228,6 +241,7 @@ for s in $(printf '%s' "$SECTIONS" | tr ',' ' '); do
         week)   avail="$avail week" ;;
         branch) [ -n "$git_branch" ]  && avail="$avail branch" ;;
         model)  [ -n "$model_name" ]  && avail="$avail model" ;;
+        effort) [ -n "$effort_level" ] && avail="$avail effort" ;;   # the display text is built later
         cost|credit) [ -n "$cost_usd" ] && avail="$avail cost" ;;   # `credit` = alias for cost
     esac
 done
@@ -237,16 +251,29 @@ keep=$#
 # Model / cost display text — computed here (before the responsive check) so that
 # check can measure their real width.  The bar sections are exactly --width, but
 # branch/model/cost are sized to their content and must not be over-counted.
-model_text="$model_name"
-if [ -n "$model_name" ]; then
-    # Names may already carry a context label, e.g. "Opus 4.8 (1M context)";
-    # tidy that to "(1M)". Only append a derived size if there's no parenthetical.
-    model_text=$(printf '%s' "$model_name" | sed 's/ context//g')
-    case "$model_text" in
-        *\(*\)*) : ;;
-        *) [ "$ctx_size" -gt 0 ] && model_text="$model_text ($(fmtctx "$ctx_size"))" ;;
-    esac
-fi
+# The model section names the model, and nothing else. It used to append the context
+# window — "Opus 4.8 (1M)" — but that size is not part of the model: it is a runtime
+# setting of the session, read from `.context_window.context_window_size`, and the
+# context section already shows it as the denominator ("708k/1M"). Printing it twice
+# invited the reading that the window is a property of the model, which it is not.
+# Any parenthetical the display name itself carries is dropped for the same reason.
+model_text=""
+[ -n "$model_name" ] && model_text=$(printf '%s' "$model_name" | sed -e 's/ *([^)]*)//g' -e 's/ *$//')
+
+# Effort display text — "High", "XHigh", "Max".
+effort_text=""
+case "$effort_level" in
+    low)    effort_text="Low";    EC="$EC_LOW" ;;
+    medium) effort_text="Medium"; EC="$EC_MED" ;;
+    high)   effort_text="High";   EC="$EC_HIGH" ;;
+    xhigh)  effort_text="XHigh";  EC="$EC_XHIGH" ;;
+    max)    effort_text="Max";    EC="$EC_MAX" ;;
+    "")     : ;;
+    # An effort level this version has never heard of still gets shown, uncolored,
+    # rather than silently dropped — Anthropic can add one at any time.
+    *)      effort_text=$(printf '%s' "$effort_level" | tr '[:lower:]' '[:upper:]' | cut -c1)$(printf '%s' "$effort_level" | cut -c2-)
+            EC="$BRIGHT" ;;
+esac
 cost_text=""
 [ -n "$cost_usd" ] && cost_text=$(printf '$%.2f' "$cost_usd" 2>/dev/null)
 [ -z "$cost_text" ] && [ -n "$cost_usd" ] && cost_text="\$$cost_usd"   # fallback if not numeric
@@ -264,6 +291,8 @@ sec_w() {
                 else _w=5; [ "${#model_text}" -gt "$_w" ] && _w=${#model_text}; fi ;;   # "Model"=5
         cost)   if [ "$LAYOUT" = compact ]; then _w=$(( 7 + ${#cost_text} ))            # "S.Cost <value>"
                 else _w=6; [ "${#cost_text}" -gt "$_w" ] && _w=${#cost_text}; fi ;;     # "S.Cost"=6
+        effort) if [ "$LAYOUT" = compact ]; then _w=${#effort_text}
+                else _w=6; [ "${#effort_text}" -gt "$_w" ] && _w=${#effort_text}; fi ;; # "Effort"=6
         *)      _w=$BARW ;;
     esac
     printf '%s' "$_w"
@@ -316,13 +345,15 @@ for s in $avail; do
     [ "$idx" -gt "$keep" ] && break
     last=0; [ "$idx" -eq "$keep" ] && last=1
 
-    if [ "$s" = "model" ] || [ "$s" = "branch" ] || [ "$s" = "cost" ]; then
+    if [ "$s" = "model" ] || [ "$s" = "branch" ] || [ "$s" = "cost" ] || [ "$s" = "effort" ]; then
         # Label on line 1; colored value on line 2 (no % / no bar).
         # These columns fit their content: width is the longer of label/value,
         # never padded out to the bar width.  Only the shorter of the two lines
         # gets trailing spaces, so the column's pipes still align vertically.
         if [ "$s" = "model" ]; then
             label="Model"; valtext="$model_text"; styled=$(style_model "$valtext")
+        elif [ "$s" = "effort" ]; then
+            label="Effort"; valtext="$effort_text"; styled="${EC}${valtext}${RST}"
         elif [ "$s" = "cost" ]; then
             label="S.Cost"; valtext="$cost_text"; styled="${MC_COST}${valtext}${RST}"
         else

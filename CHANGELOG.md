@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
 
+## 2.3.0 (2026-07-14)
+
+### Added
+- **`effort` section** — shows the reasoning effort the session is running at (`.effort.level`): the `Effort` label on line 1 and the level on line 2. Effort changes both how hard the model thinks and what the turn costs, and Claude Code surfaces it nowhere else. The five levels are colored cool to hot so the setting reads at a glance without being read: `Low` white-ish yellow (held back a little), `Medium` yellow-ish orange, `High` Claude orange, `XHigh` hotter still, `Max` red. A level this version has never seen is shown uncolored rather than dropped. **Off by default.**
+
+### Changed
+- **The `model` section names the model, and nothing else.** It used to append the context window — `Opus 4.8 (1M)` — which read as though 1M were a property of the model. It is not: nearly every current model can run at 1M, whether a given session does is a runtime setting of that session, and the size printed came from `.context_window.context_window_size`, not from the model's name. The `context` section already shows that number, as the denominator (`797k/1000k`). Any parenthetical carried by the payload's own `display_name` is dropped for the same reason.
+
 ## 2.2.0 (2026-07-04)
 
 ### Added
