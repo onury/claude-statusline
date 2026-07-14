@@ -128,8 +128,8 @@ MC_COST="${ESC}[22m${ESC}[38;2;205;165;95m"     # session cost — amber/gold, n
 EC_LOW="${ESC}[22m${ESC}[38;2;198;190;140m"     # low    — white-ish yellow, slightly held back
 EC_MED="${ESC}[22m${ESC}[38;2;230;170;80m"      # medium — yellow-ish orange
 EC_HIGH="${ESC}[22m${ESC}[38;2;217;119;87m"     # high   — Claude orange
-EC_XHIGH="${ESC}[22m${ESC}[38;2;224;96;64m"     # xhigh  — hotter still
-EC_MAX="${ESC}[22m${ESC}[38;2;220;62;52m"       # max    — red: the ceiling
+EC_EXTRA="${ESC}[22m${ESC}[38;2;203;71;49m"     # extra  — reddish orange, midway between the two below/above
+EC_MAX="${ESC}[22m${ESC}[38;2;190;23;12m"       # max    — red (#BE170C): the ceiling
 
 # Abbreviate token counts to "k" (rounded)
 fmtk() {
@@ -266,7 +266,9 @@ case "$effort_level" in
     low)    effort_text="Low";    EC="$EC_LOW" ;;
     medium) effort_text="Medium"; EC="$EC_MED" ;;
     high)   effort_text="High";   EC="$EC_HIGH" ;;
-    xhigh)  effort_text="XHigh";  EC="$EC_XHIGH" ;;
+    # Claude's own UI calls this level "Extra"; the API calls it "xhigh". Accept both,
+    # and show the name the user sees in the app.
+    xhigh|extra) effort_text="Extra"; EC="$EC_EXTRA" ;;
     max)    effort_text="Max";    EC="$EC_MAX" ;;
     "")     : ;;
     # An effort level this version has never heard of still gets shown, uncolored,

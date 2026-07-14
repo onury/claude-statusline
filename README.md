@@ -160,15 +160,15 @@ The model section names the model, and nothing else. Earlier versions appended t
 
 Add `effort` to `--sections` (e.g. `--sections context,5hr,week,branch,model,effort`) to show the reasoning effort the session is running at — the `Effort` label on line 1 and the level on line 2. It's **off by default**, and it sits next to `model` in the list above because that is where it reads best; sections render in whatever order you give them.
 
-Effort changes both how hard the model thinks and what the turn costs, and Claude Code shows it nowhere else. The levels run cool to hot, so the setting reads at a glance without being read:
+Effort changes both how hard the model thinks and what the turn costs, and Claude Code shows it nowhere else. The five levels match the ones Claude offers (`Low`, `Medium`, `High` — the default — `Extra`, `Max`) and run cool to hot, so the setting reads at a glance without being read. The payload calls `Extra` by its API name, `xhigh`; both spellings are accepted:
 
 | Level | Color |
 |---|---|
 | `Low` | white-ish yellow, held back a little |
 | `Medium` | yellow-ish orange |
 | `High` | Claude orange |
-| `XHigh` | hotter still |
-| `Max` | red — the ceiling |
+| `Extra` | reddish orange, between the two either side |
+| `Max` | red (`#BE170C`) — the ceiling |
 
 A level this version has never seen is shown uncolored rather than dropped: Anthropic can add one at any time.
 
