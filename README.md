@@ -154,7 +154,7 @@ version (dim white). Sections render in the order you list them.
 
 The model section names the model, and nothing else. Earlier versions appended the context window to it — `Opus 4.8 (1M)` — which was misleading: **the window is not a property of the model.** Nearly every current model can run at 1M, whether a session actually does is a runtime setting of that session, and the size the status line prints comes from `.context_window.context_window_size` in the payload, not from the model's name. The `context` section already shows it, as the denominator (`797k/1000k`).
 
-![status line with the model section](ss-model.png)
+![status line with the model section](ss-model-v2.png)
 
 ### Effort section
 
