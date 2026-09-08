@@ -46,6 +46,8 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
 
 ## Install
 
+This is a single shell script and it installs from GitHub only. There is no npm package; the `claude-statusline` on npm is a different project by another author.
+
 1. Download the script into your Claude Code config dir:
 
    ```sh
