@@ -23,7 +23,7 @@ the bottom of every [Claude Code](https://code.claude.com) prompt.
 > [!NOTE]
 > For the `5hr` and `Week` sections, the `%` and bar are **quota usage** (how much of the
 > window's limit you've consumed), while the time next to the label is the **window clock**
-> (see `--time` below). These are independent: `Week -5days … 3%` means 5 days until reset
+> (see `--time` below). These are independent: `Week -5d02h … 3%` means 5 days 2 hours until reset
 > *and* only 3% used — low usage doesn't mean more time left, and a near-full bar doesn't
 > mean the reset is close.
 
@@ -115,7 +115,7 @@ Pass options on the command line in `settings.json` — no need to edit the scri
 | `--width N`             | `16`              | Cells per bar / width of each line-1 field (expanded layout; compact fits content). |
 | `--glyph CHAR`          | `▘`               | Bar cell character. Must be **single-column** (e.g. `▖` bottom, `▌` full height, `█` full block, `▂` quarter height). |
 | `--sections LIST`       | `context,5hr,week,branch` | Comma-separated sections to show, **in the order given**. Any subset of `context`, `5hr`, `week`, `cost`, `branch`, `model`, `effort`. (`tokens` aliases `context`; `credit` aliases `cost`.) `cost` and `model` are off by default. |
-| `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6days`); `elapsed` — time used, ticking up (`+00:30`, `+1day`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
+| `--time MODE`           | `reset`           | What the `5hr`/`Week` time field shows. `reset` — the reset point (`@23:00`, `@Jun25`); `remaining` — time left, ticking down (`-04:30`, `-6d23h`); `elapsed` — time used, ticking up (`+00:30`, `+1d05h`). `@` = at, `-` = before reset, `+` = since start. The week switches to the `-HH:MM`/`+HH:MM` clock once under a day. |
 | `--fill F`              | `0.80`            | Brightness (`0`–`1`) of filled bar cells. |
 | `--track F`             | `0.22`            | Brightness (`0`–`1`) of the unfilled track. |
 | `--responsive true\|false` | `true`         | When the line is wider than the terminal, drop sections **from the right** until it fits. |
@@ -206,7 +206,7 @@ With `--layout compact`, the status line collapses to **one line** — the line-
 `branch`/`model` sections show their value directly (since there's no second line to hold it):
 
 ```
-191k/1000k 19% | 5hr -02:37 12% | Week -6days 7% | main | Opus 4.8
+191k/1000k 19% | 5hr -02:37 12% | Week -6d23h 7% | main | Opus 4.8
 ```
 
 Every section fits its own content — without a second line to align pipes to, there's no
@@ -220,7 +220,7 @@ With `--responsive true` (the default), the script reads the `$COLUMNS` environm
 first (`model`, then `branch`, `week`, …) — until the line fits. The leftmost section (`context`) is always
 kept. Set `--responsive false` to always render every section even if it wraps.
 
-In the expanded layout both lines share the same per-section `--width` and ` | ` separator, so the pipes stay vertically aligned — a field that overflows `--width` is clipped (only the last field may overflow), and a multi-column `--glyph` breaks this. When `--width` is too narrow to hold a section plus its `%`, the `%` is dropped (the bar underneath still shows the level). For the `5hr`/`Week` sections the label then stays pinned left while the time value (e.g. `-02:35`, `-6days`) right-aligns into the freed space; the context section stays left-aligned. Compact is a single line with nothing to align beneath it, so fields just fit their content.
+In the expanded layout both lines share the same per-section `--width` and ` | ` separator, so the pipes stay vertically aligned — a field that overflows `--width` is clipped (only the last field may overflow), and a multi-column `--glyph` breaks this. When `--width` is too narrow to hold a section plus its `%`, the `%` is dropped (the bar underneath still shows the level). For the `5hr`/`Week` sections the label then stays pinned left while the time value (e.g. `-02:35`, `-6d23h`) right-aligns into the freed space; the context section stays left-aligned. Compact is a single line with nothing to align beneath it, so fields just fit their content.
 
 ## `/sl` slash command (optional)
 

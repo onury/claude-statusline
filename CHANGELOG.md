@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
 
+## 2.3.2 (2026-09-22)
+
+### Changed
+- **The week's time field shows days and hours: `-2d01h` instead of `-3days`.** The day count rounded up, so 2 days 1 hour read as three days, a whole day more than was left. Both parts are now floored, so the field never promises time you don't have, and it keeps the same six columns as before and as the `-HH:MM` clock it switches to under a day. `--time elapsed` counts up the same way (`+2d08h`).
+
 ## 2.3.1 (2026-07-14)
 
 ### Fixed

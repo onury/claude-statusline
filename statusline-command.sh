@@ -17,8 +17,8 @@
 #                         usage-credit balance in the status line payload.
 #   --time MODE         what the 5hr/week time field shows           (default reset)
 #                         reset      reset point          @23:00   @Jun25
-#                         remaining  time left, ticks down -04:30   -6days
-#                         elapsed    time used, ticks up   +00:30   +1day
+#                         remaining  time left, ticks down -04:30   -6d23h
+#                         elapsed    time used, ticks up   +00:30   +1d05h
 #                       (@ = at, - = before reset / down, + = since start / up;
 #                        week switches to the -HH:MM/+HH:MM clock under 1 day.
 #                        Shows an animated ••• once the last-known reset has passed
@@ -155,9 +155,10 @@ clock_hm() {
     s=$1; [ "$s" -lt 0 ] && s=0
     printf -- '%s%02d:%02d' "$2" "$(( s / 3600 ))" "$(( (s % 3600) / 60 ))"
 }
-# A signed day count with singular/plural word.  $1=days $2=sign  ->  "-6days" / "+1day"
-day_word() {
-    if [ "$1" -eq 1 ]; then printf -- '%s1day' "$2"; else printf -- '%s%ddays' "$2" "$1"; fi
+# A signed "NdHHh" duration, both parts floored.  $1=seconds $2=sign  ->  "-2d01h" / "+6d23h"
+# Six columns, like the "-HH:MM" clock it hands over to under a day.
+day_hm() {
+    printf -- '%s%dd%02dh' "$2" "$(( $1 / 86400 ))" "$(( ($1 % 86400) / 3600 ))"
 }
 # Awaiting-reset indicator: a dot sliding across three slots.  Advances by the
 # per-render counter SPIN (not the wall clock), so it never aliases — it steps
@@ -180,16 +181,16 @@ fh_field() {
         elapsed)   printf ' %s'  "$(clock_hm "$(( FH_LEN - rem ))" '+')" ;;
     esac
 }
-# Weekly time field: whole days while >=1 day away, else the signed clock.  $1=resets_at $2=now
+# Weekly time field: days and hours while >=1 day away, else the signed clock.  $1=resets_at $2=now
 wk_field() {
     rem=$(( $1 - $2 ))
     [ "$rem" -le 0 ] && { awaiting; return; }
     case "$TMODE" in
         reset)     printf ' @%s' "$(date -r "$1" +"$DATEFMT" 2>/dev/null)" ;;
-        remaining) if [ "$rem" -ge 86400 ]; then printf ' %s' "$(day_word "$(( (rem + 86399) / 86400 ))" '-')"
+        remaining) if [ "$rem" -ge 86400 ]; then printf ' %s' "$(day_hm "$rem" '-')"
                    else printf ' %s' "$(clock_hm "$rem" '-')"; fi ;;
         elapsed)   el=$(( WK_LEN - rem )); [ "$el" -lt 0 ] && el=0
-                   if [ "$el" -ge 86400 ]; then printf ' %s' "$(day_word "$(( el / 86400 ))" '+')"
+                   if [ "$el" -ge 86400 ]; then printf ' %s' "$(day_hm "$el" '+')"
                    else printf ' %s' "$(clock_hm "$el" '+')"; fi ;;
     esac
 }
