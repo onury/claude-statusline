@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
 
-## Unreleased
+## 2.3.3 (2026-11-14)
 
 ### Fixed
 - **`/sl` finds a capture wrapper by what it does, not by its name.** It recognized one wrapper by its file name, so a wrapper with any other name, or the same one renamed, went unseen: `/sl` then wrote a bare command into `statusLine.command` and dropped the wrapper. It now treats any script the command names that keeps an `inner.txt` beside it as a wrapper, which also covers one wrapper wrapped by another.
