@@ -1,5 +1,5 @@
 #!/bin/sh
-# claude-statusline — /sl config helper  —  v1.1.1
+# claude-statusline — /sl config helper  —  v1.1.2
 # https://github.com/onury/claude-statusline
 #
 # Deterministically edits the `--flag`s on your `statusLine.command` in settings.json,
@@ -24,8 +24,9 @@ BASE="sh ~/.claude/statusline-command.sh"
 DEFAULT_SECTIONS="context,5hr,week,branch"
 
 # Where the command we edit actually lives. Normally that is settings.json's
-# `statusLine.command`. But a capture wrapper — Claude Watch installs one — takes
-# over that key and re-runs your real command from a file of its own, so editing
+# `statusLine.command`. But a capture wrapper (a tool that records the status line
+# payload) can take over that key and re-run your real command from a file of its
+# own, so editing
 # settings.json would edit the wrapper, which ignores flags entirely: the change
 # would look accepted and do nothing. When we see a wrapper, we edit its file.
 INNER=""
@@ -50,16 +51,27 @@ command -v jq >/dev/null 2>&1 || { echo "sl-config: jq is required" >&2; exit 1;
 # Current command, falling back to the default invocation if none is set yet.
 CMD=$(jq -r '.statusLine.command // empty' "$SETTINGS" 2>/dev/null || true)
 
-# A capture wrapper in that slot means the real command is one level down. Take the
-# wrapper's own directory from its path, so a non-default config dir still resolves.
-case "$CMD" in
-  *claude-watch-statusline.sh*)
-    _dir=$(printf '%s\n' "$CMD" | sed -n "s|.*[ '\"]\\(/.*/\\)claude-watch-statusline\\.sh.*|\\1|p")
-    [ -n "$_dir" ] || _dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/claude-watch/"
-    INNER="${_dir}inner.txt"
+# A capture wrapper in that slot means the real command is one level down. A
+# wrapper keeps the command it re-runs in an `inner.txt` beside its own script, so
+# look for one beside each script the command names: any wrapper resolves, by any
+# name, in any folder, and so does a wrapper that is itself wrapped by another.
+set -f
+for _tok in $CMD; do
+  _tok=$(printf '%s' "$_tok" | tr -d "'\"" | sed -e "s|^~/|$HOME/|" \
+    -e "s|^\\\$HOME/|$HOME/|" -e "s|^\\\${HOME}/|$HOME/|")
+  case "$_tok" in
+    *statusline-command.sh) continue ;;
+    /*.sh) ;;
+    *) continue ;;
+  esac
+  _inner="$(dirname "$_tok")/inner.txt"
+  if [ -s "$_inner" ]; then
+    INNER=$_inner
     CMD=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$INNER" 2>/dev/null || true)
-    ;;
-esac
+    break
+  fi
+done
+set +f
 
 [ -n "$CMD" ] || CMD="$BASE"
 
